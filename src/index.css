@@ -118,6 +118,17 @@ button {
   margin-bottom: 30px;
 }
 
+.claim-rules {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 26px;
+  text-align: center;
+  padding: 10px 14px;
+  border: 1px solid var(--color-border);
+  background: rgba(10, 10, 15, 0.72);
+}
+
 .player-name-label {
   display: flex;
   flex-direction: column;

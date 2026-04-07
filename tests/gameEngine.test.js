@@ -418,7 +418,7 @@ test('crazy hunt waves still bias toward the predicted forward path', async () =
   assert.deepEqual(target, { v: true, idx: 7 });
 });
 
-test('endless mode stops shrinking once it reaches the grid floor', async () => {
+test('lasers only stop when an axis is down to a single line', async () => {
   installBrowserMocks();
   const { GameEngine } = await import(`../src/gameEngine.js?test=${Date.now()}-${Math.random()}`);
   const canvas = {
@@ -434,18 +434,18 @@ test('endless mode stops shrinking once it reaches the grid floor', async () => 
     onUpdateHUD: () => {},
   });
 
-  engine.activeRows = engine.GRID_INDICES.slice(0, 8);
+  engine.activeRows = engine.GRID_INDICES.slice(0, 1);
   engine.activeCols = engine.GRID_INDICES.slice(0, 10);
 
   assert.equal(engine.canDeleteTarget(false), false);
   assert.equal(engine.canDeleteTarget(true), true);
   assert.equal(engine.canSpawnLaser(false, 4), false);
 
-  engine.activeCols = engine.GRID_INDICES.slice(0, 8);
+  engine.activeCols = engine.GRID_INDICES.slice(0, 1);
   assert.equal(engine.canDeleteTarget(true), false);
 });
 
-test('narrow endless boards still allow deletion on axes above the floor', async () => {
+test('narrow boards still allow deletion while more than one line remains', async () => {
   installBrowserMocks();
   const { GameEngine } = await import(`../src/gameEngine.js?test=${Date.now()}-${Math.random()}`);
   const canvas = {
@@ -461,11 +461,11 @@ test('narrow endless boards still allow deletion on axes above the floor', async
     onUpdateHUD: () => {},
   });
 
-  engine.activeRows = engine.GRID_INDICES.slice(0, 9);
-  engine.activeCols = engine.GRID_INDICES.slice(0, 8);
+  engine.activeRows = engine.GRID_INDICES.slice(0, 2);
+  engine.activeCols = engine.GRID_INDICES.slice(0, 2);
 
   assert.equal(engine.canDeleteTarget(false), true);
-  assert.equal(engine.canDeleteTarget(true), false);
+  assert.equal(engine.canDeleteTarget(true), true);
 });
 
 test('laser count scales up over time for endless and crazy modes', async () => {
@@ -861,7 +861,7 @@ test('items spawn more frequently and favor expand items at higher stages', asyn
 
     assert.ok(lateDelay < earlyDelay);
     assert.ok(lateWeight > earlyWeight);
-    assert.equal(engine.getExpandItemWeight(), 0.96);
+    assert.equal(engine.getExpandItemWeight(), 0.962);
   } finally {
     Math.random = originalRandom;
   }
@@ -903,6 +903,41 @@ test('crazy mode accelerates recovery item cadence and weight', async () => {
   } finally {
     Math.random = originalRandom;
   }
+});
+
+test('restore count increases as waves progress', async () => {
+  installBrowserMocks();
+  const { GameEngine } = await import(`../src/gameEngine.js?test=${Date.now()}-${Math.random()}`);
+  const canvas = {
+    width: 0,
+    height: 0,
+    getContext: () => createCanvasContext(),
+  };
+
+  const endless = new GameEngine({
+    canvas,
+    mode: 'endless',
+    onGameOver: () => {},
+    onUpdateHUD: () => {},
+  });
+  endless.round = 1;
+  const endlessEarly = endless.getRestoreCount();
+  endless.round = 20;
+  const endlessLate = endless.getRestoreCount();
+
+  const crazy = new GameEngine({
+    canvas,
+    mode: 'crazy',
+    onGameOver: () => {},
+    onUpdateHUD: () => {},
+  });
+  crazy.round = 1;
+  const crazyEarly = crazy.getRestoreCount();
+  crazy.round = 26;
+  const crazyLate = crazy.getRestoreCount();
+
+  assert.ok(endlessLate > endlessEarly);
+  assert.ok(crazyLate > crazyEarly);
 });
 
 test('sweep lasers become available after 120 seconds and use a separate lane', async () => {
@@ -988,15 +1023,15 @@ test('endless restores a line and reschedules quickly if no laser targets are av
   });
 
   engine.timeAlive = 90;
-  engine.activeRows = engine.GRID_INDICES.slice(0, 8);
-  engine.activeCols = engine.GRID_INDICES.slice(0, 8);
+  engine.activeRows = engine.GRID_INDICES.slice(0, 1);
+  engine.activeCols = engine.GRID_INDICES.slice(0, 1);
   engine.laserTimer = 0;
   engine.lasers = [];
   engine.itemSpawnTimer = 9;
 
   engine.handleLasers(0.1);
 
-  assert.ok(engine.activeRows.length === 9 || engine.activeCols.length === 9);
+  assert.ok(engine.activeRows.length === 2 || engine.activeCols.length === 2);
   assert.equal(engine.itemSpawnTimer, 1);
   assert.ok(engine.laserTimer <= 0.8);
 });

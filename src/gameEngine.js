@@ -251,40 +251,42 @@ export class GameEngine {
       return 10 + Math.random() * 6;
     }
 
+    const waveFactor = Math.min(2.5, this.round * 0.08);
+
     if (this.config.mode === 'crazy') {
       const stage = this.getStageNumber();
-      if (stage >= 8) return 1.8 + Math.random() * 1.2;
-      if (stage >= 6) return 2.2 + Math.random() * 1.4;
-      if (stage >= 4) return 2.8 + Math.random() * 1.7;
-      return 3.4 + Math.random() * 1.8;
+      if (stage >= 8) return Math.max(0.8, 1.8 + Math.random() * 1.2 - waveFactor);
+      if (stage >= 6) return Math.max(1, 2.2 + Math.random() * 1.4 - waveFactor);
+      if (stage >= 4) return Math.max(1.2, 2.8 + Math.random() * 1.7 - waveFactor);
+      return Math.max(1.4, 3.4 + Math.random() * 1.8 - waveFactor);
     }
 
     const stage = this.getStageNumber();
     if (stage >= 7) {
-      return 2.8 + Math.random() * 1.8;
+      return Math.max(1.2, 2.8 + Math.random() * 1.8 - waveFactor);
     }
 
     if (stage === 6) {
-      return 3.1 + Math.random() * 2;
+      return Math.max(1.4, 3.1 + Math.random() * 2 - waveFactor);
     }
 
     if (stage === 5) {
-      return 3.6 + Math.random() * 2.2;
+      return Math.max(1.6, 3.6 + Math.random() * 2.2 - waveFactor);
     }
 
     if (stage === 4) {
-      return 4.2 + Math.random() * 2.4;
+      return Math.max(1.8, 4.2 + Math.random() * 2.4 - waveFactor);
     }
 
     if (stage === 3) {
-      return 5 + Math.random() * 2.6;
+      return Math.max(2, 5 + Math.random() * 2.6 - waveFactor);
     }
 
     if (stage === 2) {
-      return 6 + Math.random() * 3;
+      return Math.max(2.4, 6 + Math.random() * 3 - waveFactor);
     }
 
-    return 7 + Math.random() * 4;
+    return Math.max(3, 7 + Math.random() * 4 - waveFactor);
   }
 
   getExpandItemWeight() {
@@ -294,24 +296,26 @@ export class GameEngine {
 
     if (this.config.mode === 'crazy') {
       const smallerAxis = Math.min(this.activeRows.length, this.activeCols.length);
-      if (smallerAxis <= 10) return 0.98;
-      if (smallerAxis <= 12) return 0.95;
-      return 0.9;
+      const waveBoost = Math.min(0.06, this.round * 0.003);
+      if (smallerAxis <= 10) return Math.min(0.995, 0.98 + waveBoost);
+      if (smallerAxis <= 12) return Math.min(0.985, 0.95 + waveBoost);
+      return Math.min(0.96, 0.9 + waveBoost);
     }
 
     const smallerAxis = Math.min(this.activeRows.length, this.activeCols.length);
+    const waveBoost = Math.min(0.04, this.round * 0.002);
     if (smallerAxis <= 9) {
-      return 0.96;
+      return Math.min(0.99, 0.96 + waveBoost);
     }
 
     const stage = this.getStageNumber();
-    if (stage >= 7) return 0.92;
-    if (stage === 6) return 0.9;
-    if (stage === 5) return 0.88;
-    if (stage === 4) return 0.85;
-    if (stage === 3) return 0.82;
-    if (stage === 2) return 0.78;
-    return this.ITEM_EXPAND_WEIGHT;
+    if (stage >= 7) return Math.min(0.97, 0.92 + waveBoost);
+    if (stage === 6) return Math.min(0.95, 0.9 + waveBoost);
+    if (stage === 5) return Math.min(0.93, 0.88 + waveBoost);
+    if (stage === 4) return Math.min(0.9, 0.85 + waveBoost);
+    if (stage === 3) return Math.min(0.87, 0.82 + waveBoost);
+    if (stage === 2) return Math.min(0.83, 0.78 + waveBoost);
+    return Math.min(0.8, this.ITEM_EXPAND_WEIGHT + waveBoost);
   }
 
   scheduleNextItemSpawn() {
@@ -454,7 +458,7 @@ export class GameEngine {
 
   applyItem(type) {
     if (type === 'EXPAND') {
-      const restoreCount = this.config.mode === 'crazy' ? 4 : this.isEndlessLikeMode() ? 3 : 2;
+      const restoreCount = this.getRestoreCount();
       const restoredCount = this.restoreMissingLines(restoreCount);
       if (restoredCount === 0) {
         this.activateSlowField();
@@ -463,6 +467,23 @@ export class GameEngine {
     }
 
     this.activateSlowField();
+  }
+
+  getRestoreCount() {
+    if (this.config.mode === 'crazy') {
+      if (this.round >= 25) return 7;
+      if (this.round >= 18) return 6;
+      if (this.round >= 10) return 5;
+      return 4;
+    }
+
+    if (this.isEndlessLikeMode()) {
+      if (this.round >= 24) return 5;
+      if (this.round >= 14) return 4;
+      return 3;
+    }
+
+    return 2;
   }
 
   activateSlowField() {
@@ -863,10 +884,6 @@ export class GameEngine {
       return false;
     }
 
-    if (this.isEndlessLikeMode() && axisSize <= this.ENDLESS_GRID_FLOOR) {
-      return false;
-    }
-
     return true;
   }
 
@@ -989,7 +1006,6 @@ export class GameEngine {
 
         const numLasers = this.getLaserCount();
 
-        const waveType = this.config.mode === 'crazy' ? this.getCrazyWaveType(numLasers) : 'TRACK';
         const chosenTargets = [];
         let spawnedLaserCount = 0;
         for (let index = 0; index < numLasers; index += 1) {
@@ -1009,9 +1025,7 @@ export class GameEngine {
 
           const safeTargets = this.getMovementSafeTargets(validTargets);
           if (safeTargets.length > 0) {
-            const target = this.config.mode === 'crazy'
-              ? this.chooseCrazyTarget(safeTargets, index, numLasers, waveType, chosenTargets)
-              : this.chooseTrackedTarget(safeTargets, index, numLasers);
+            const target = this.chooseTrackedTarget(safeTargets, index, numLasers);
             const queueDelay = this.getLaserQueueDelay(index, numLasers);
             this.lasers.push({
               kind: 'NORMAL',

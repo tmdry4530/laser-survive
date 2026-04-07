@@ -1,5 +1,6 @@
 import { loadStats, saveGameResult } from './db.js';
 import { GameEngine } from './gameEngine.js';
+import { fetchLeaderboard, fetchPlayerBest, submitScore } from './leaderboardApi.js';
 
 const PLAYER_NAME_KEY = 'laser-player-name';
 const DEFAULT_PLAYER_NAME = 'ANON';
@@ -47,51 +48,6 @@ let activeLeaderboardMode = 'endless';
 let bestScoreEndless = 0;
 let bestScoreCrazy = 0;
 let testModeEnabled = new URLSearchParams(window.location.search).get('test') === '1';
-
-function getApiCandidates() {
-  const fromQuery = new URLSearchParams(window.location.search).get('apiBase');
-  const fromStorage = window.localStorage.getItem('laser-api-base');
-  const candidates = [];
-
-  if (fromQuery) {
-    candidates.push(fromQuery);
-  }
-
-  if (fromStorage && !candidates.includes(fromStorage)) {
-    candidates.push(fromStorage);
-  }
-
-  if (window.location.port === '3001') {
-    candidates.push('/api');
-  } else {
-    candidates.push(`${window.location.protocol}//${window.location.hostname}:3001/api`);
-    candidates.push('/api');
-  }
-
-  return [...new Set(candidates)];
-}
-
-async function apiFetch(path, options = {}) {
-  const candidates = getApiCandidates();
-  let lastError = null;
-
-  for (const base of candidates) {
-    try {
-      const response = await fetch(`${base}${path}`, options);
-      const payload = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        const error = new Error(payload.error || `Request failed (${response.status})`);
-        error.status = response.status;
-        throw error;
-      }
-      return payload;
-    } catch (error) {
-      lastError = error;
-    }
-  }
-
-  throw lastError ?? new Error('Leaderboard API unavailable');
-}
 
 function switchScreen(screen) {
   currentScreen = screen;
@@ -168,16 +124,12 @@ async function submitOnlineScore(time) {
   goOnlineStatus.textContent = 'Submitting score...';
 
   try {
-    const response = await apiFetch('/scores', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        playerName: getPlayerName(),
-        mode: currentMode,
-        survivalTime: time,
-        isTestMode: testModeEnabled,
-        clientVersion: '1.0.0',
-      }),
+    const response = await submitScore({
+      playerName: getPlayerName(),
+      mode: currentMode,
+      survivalTime: time,
+      isTestMode: testModeEnabled,
+      clientVersion: '1.0.0',
     });
 
     goOnlineStatus.textContent = `ONLINE RANK #${response.rank}${response.isPersonalBest ? ' · PB' : ''}`;
@@ -207,8 +159,8 @@ function renderLeaderboardItems(items) {
 
 async function renderPlayerBest() {
   try {
-    const response = await apiFetch(`/player-best?playerName=${encodeURIComponent(getPlayerName())}`);
-    leaderboardBest.textContent = `YOUR BEST · ENDLESS ${response.best.endless.toFixed(1)}s / CRAZY ${response.best.crazy.toFixed(1)}s`;
+    const best = await fetchPlayerBest(getPlayerName());
+    leaderboardBest.textContent = `YOUR BEST · ENDLESS ${best.endless.toFixed(1)}s / CRAZY ${best.crazy.toFixed(1)}s`;
   } catch {
     leaderboardBest.textContent = 'YOUR BEST · UNAVAILABLE';
   }
@@ -224,9 +176,9 @@ async function openLeaderboard(mode = activeLeaderboardMode) {
   await renderPlayerBest();
 
   try {
-    const response = await apiFetch(`/leaderboard?mode=${mode}&limit=20`);
+    const items = await fetchLeaderboard(mode, 20);
     leaderboardStatus.textContent = `${mode.toUpperCase()} TOP 20`;
-    renderLeaderboardItems(response.items);
+    renderLeaderboardItems(items);
   } catch (error) {
     leaderboardStatus.textContent = error.message.toUpperCase();
     leaderboardList.innerHTML = '<li class="leaderboard-empty">FAILED TO LOAD</li>';

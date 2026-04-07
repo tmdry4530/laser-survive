@@ -2,98 +2,56 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { once } from 'node:events';
 import { createApp } from '../server/src/app.js';
-import { createDatabase } from '../server/src/db.js';
 
 async function startTestServer() {
-  const db = createDatabase(':memory:');
-  const app = createApp({ db });
+  const app = createApp();
   const server = app.listen(0);
   await once(server, 'listening');
   const { port } = server.address();
   return {
-    db,
     server,
     baseUrl: `http://127.0.0.1:${port}`,
     async close() {
       await new Promise((resolve) => server.close(resolve));
-      db.close();
     },
   };
 }
 
-test('score submission stores rankable endless/crazy results', async () => {
+test('config endpoint exposes public Supabase config only', async () => {
+  process.env.SUPABASE_URL = 'https://demo.supabase.co';
+  process.env.SUPABASE_ANON_KEY = 'anon-key';
   const ctx = await startTestServer();
 
   try {
-    const first = await fetch(`${ctx.baseUrl}/api/scores`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ playerName: 'CHAM', mode: 'endless', survivalTime: 88.4, isTestMode: false }),
-    }).then((res) => res.json());
-
-    const second = await fetch(`${ctx.baseUrl}/api/scores`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ playerName: 'CHAM', mode: 'crazy', survivalTime: 33.1, isTestMode: false }),
-    }).then((res) => res.json());
-
-    assert.equal(first.ok, true);
-    assert.equal(first.rank, 1);
-    assert.equal(second.ok, true);
-    assert.equal(second.rank, 1);
+    const text = await fetch(`${ctx.baseUrl}/app-config.js`).then((res) => res.text());
+    assert.match(text, /window\.__LASER_CONFIG__/);
+    assert.match(text, /demo\.supabase\.co/);
+    assert.match(text, /anon-key/);
   } finally {
     await ctx.close();
   }
 });
 
-test('backend rejects invalid and test-mode submissions', async () => {
-  const ctx = await startTestServer();
+test('health endpoint reports whether supabase config is present', async () => {
+  process.env.SUPABASE_URL = 'https://demo.supabase.co';
+  process.env.SUPABASE_ANON_KEY = 'anon-key';
+  const configured = await startTestServer();
 
   try {
-    const invalidMode = await fetch(`${ctx.baseUrl}/api/scores`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ playerName: 'AAA', mode: 'weird', survivalTime: 10 }),
-    });
-
-    const testMode = await fetch(`${ctx.baseUrl}/api/scores`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ playerName: 'AAA', mode: 'endless', survivalTime: 10, isTestMode: true }),
-    });
-
-    assert.equal(invalidMode.status, 400);
-    assert.equal(testMode.status, 403);
+    const payload = await fetch(`${configured.baseUrl}/api/health`).then((res) => res.json());
+    assert.deepEqual(payload, { ok: true, supabaseConfigured: true });
   } finally {
-    await ctx.close();
+    await configured.close();
   }
-});
 
-test('leaderboard is sorted by mode and player-best endpoint groups results', async () => {
-  const ctx = await startTestServer();
-
+  process.env.SUPABASE_URL = '';
+  process.env.SUPABASE_ANON_KEY = '';
+  const unconfigured = await startTestServer();
   try {
-    for (const payload of [
-      { playerName: 'AAA', mode: 'endless', survivalTime: 70.5 },
-      { playerName: 'BBB', mode: 'endless', survivalTime: 91.2 },
-      { playerName: 'AAA', mode: 'crazy', survivalTime: 44.8 },
-    ]) {
-      await fetch(`${ctx.baseUrl}/api/scores`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...payload, isTestMode: false }),
-      });
-    }
-
-    const leaderboard = await fetch(`${ctx.baseUrl}/api/leaderboard?mode=endless&limit=20`).then((res) => res.json());
-    const best = await fetch(`${ctx.baseUrl}/api/player-best?playerName=AAA`).then((res) => res.json());
-
-    assert.equal(leaderboard.items[0].playerName, 'BBB');
-    assert.equal(leaderboard.items[1].playerName, 'AAA');
-    assert.equal(best.best.endless, 70.5);
-    assert.equal(best.best.crazy, 44.8);
+    const payload = await fetch(`${unconfigured.baseUrl}/api/health`).then((res) => res.json());
+    assert.deepEqual(payload, { ok: true, supabaseConfigured: false });
   } finally {
-    await ctx.close();
+    await unconfigured.close();
   }
 });
 

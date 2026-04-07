@@ -16,7 +16,6 @@ const titleBestEndless = document.getElementById('title-best-endless');
 const titleBestCrazy = document.getElementById('title-best-crazy');
 const titleGames = document.getElementById('title-games');
 const titleTestMode = document.getElementById('title-testmode');
-const playerNameInput = document.getElementById('player-name');
 
 const hudTimeVal = document.getElementById('hud-time-val');
 const hudBestVal = document.getElementById('hud-best-val');
@@ -28,12 +27,15 @@ const gameItem = document.getElementById('game-item');
 const goTime = document.getElementById('go-time');
 const goNewBest = document.getElementById('go-newbest');
 const goOnlineStatus = document.getElementById('go-online-status');
+const goPlayerNameInput = document.getElementById('go-player-name');
 const gameCanvas = document.getElementById('game-canvas');
 
 const startEndlessButton = document.getElementById('btn-start-endless');
 const startCrazyButton = document.getElementById('btn-start-crazy');
 const openLeaderboardButton = document.getElementById('btn-open-leaderboard');
 const retryButton = document.getElementById('btn-retry');
+const saveScoreButton = document.getElementById('btn-save-score');
+const homeButton = document.getElementById('btn-home');
 const leaderboardBackButton = document.getElementById('btn-leaderboard-back');
 const leaderboardEndlessTab = document.getElementById('leaderboard-tab-endless');
 const leaderboardCrazyTab = document.getElementById('leaderboard-tab-crazy');
@@ -48,6 +50,8 @@ let activeLeaderboardMode = 'endless';
 let bestScoreEndless = 0;
 let bestScoreCrazy = 0;
 let testModeEnabled = new URLSearchParams(window.location.search).get('test') === '1';
+let lastFinishedTime = null;
+let lastScoreSaved = false;
 
 function switchScreen(screen) {
   currentScreen = screen;
@@ -64,12 +68,12 @@ function normalizePlayerName(value) {
 }
 
 function getPlayerName() {
-  return normalizePlayerName(playerNameInput.value);
+  return normalizePlayerName(goPlayerNameInput.value || window.localStorage.getItem(PLAYER_NAME_KEY));
 }
 
 function savePlayerName() {
   const normalized = getPlayerName();
-  playerNameInput.value = normalized;
+  goPlayerNameInput.value = normalized;
   window.localStorage.setItem(PLAYER_NAME_KEY, normalized);
 }
 
@@ -121,7 +125,13 @@ function applyModeTheme() {
 }
 
 async function submitOnlineScore(time) {
+  if (lastScoreSaved) {
+    goOnlineStatus.textContent = 'SCORE ALREADY SAVED';
+    return;
+  }
+
   goOnlineStatus.textContent = 'Submitting score...';
+  savePlayerName();
 
   try {
     const response = await submitScore({
@@ -133,6 +143,7 @@ async function submitOnlineScore(time) {
     });
 
     goOnlineStatus.textContent = `ONLINE RANK #${response.rank}${response.isPersonalBest ? ' · PB' : ''}`;
+    lastScoreSaved = true;
   } catch (error) {
     goOnlineStatus.textContent = error.message.toUpperCase();
   }
@@ -186,19 +197,33 @@ async function openLeaderboard(mode = activeLeaderboardMode) {
 }
 
 function bindControls() {
-  playerNameInput.value = normalizePlayerName(window.localStorage.getItem(PLAYER_NAME_KEY));
-  playerNameInput.addEventListener('change', savePlayerName);
-  playerNameInput.addEventListener('blur', savePlayerName);
+  goPlayerNameInput.value = normalizePlayerName(window.localStorage.getItem(PLAYER_NAME_KEY));
+  goPlayerNameInput.addEventListener('change', savePlayerName);
+  goPlayerNameInput.addEventListener('blur', savePlayerName);
 
   startEndlessButton.addEventListener('click', () => startGame('endless'));
   startCrazyButton.addEventListener('click', () => startGame('crazy'));
   openLeaderboardButton.addEventListener('click', () => openLeaderboard('endless'));
   retryButton.addEventListener('click', () => startGame(currentMode));
+  saveScoreButton.addEventListener('click', () => {
+    if (lastFinishedTime !== null) {
+      void submitOnlineScore(lastFinishedTime);
+    }
+  });
+  homeButton.addEventListener('click', () => switchScreen('TITLE'));
   leaderboardBackButton.addEventListener('click', () => switchScreen('TITLE'));
   leaderboardEndlessTab.addEventListener('click', () => openLeaderboard('endless'));
   leaderboardCrazyTab.addEventListener('click', () => openLeaderboard('crazy'));
 
   window.addEventListener('keydown', (event) => {
+    const target = event.target;
+    const isTypingTarget = target instanceof HTMLElement
+      && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable);
+
+    if (isTypingTarget) {
+      return;
+    }
+
     if (currentScreen === 'GAME') {
       return;
     }
@@ -233,6 +258,18 @@ function bindControls() {
       event.preventDefault();
       startGame(currentMode);
     }
+
+    if (event.code === 'KeyS' && currentScreen === 'GAMEOVER') {
+      event.preventDefault();
+      if (lastFinishedTime !== null) {
+        void submitOnlineScore(lastFinishedTime);
+      }
+    }
+
+    if (event.code === 'KeyH' && currentScreen === 'GAMEOVER') {
+      event.preventDefault();
+      switchScreen('TITLE');
+    }
   });
 }
 
@@ -254,10 +291,13 @@ function startGame(mode = 'endless') {
       const isNewBest = await saveGameResult(time, won, mode);
       await renderStats();
 
+      lastFinishedTime = time;
+      lastScoreSaved = false;
       goTime.textContent = time.toFixed(1);
       goNewBest.style.display = isNewBest ? 'block' : 'none';
+      goPlayerNameInput.value = normalizePlayerName(window.localStorage.getItem(PLAYER_NAME_KEY));
+      goOnlineStatus.textContent = 'ENTER NAME THEN SAVE SCORE';
       switchScreen('GAMEOVER');
-      void submitOnlineScore(time);
     },
     onUpdateHUD: (time, round, laserIn, itemStatus = '', stageLabel = '') => {
       hudTimeVal.textContent = time.toFixed(1);

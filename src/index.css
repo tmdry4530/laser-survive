@@ -136,10 +136,19 @@ button {
   text-transform: uppercase;
 }
 
+.player-name-input:focus {
+  border-color: var(--color-neon);
+  box-shadow: 0 0 0 2px rgba(0, 240, 255, 0.15);
+}
+
 .action-list {
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+.compact-actions {
+  margin-top: 16px;
 }
 
 .action-text {

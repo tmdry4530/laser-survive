@@ -25,10 +25,6 @@
           <div><span class="muted">🔥 ENDLESS BEST:</span> <span class="danger" id="title-best-endless">0.0s</span></div>
           <div><span class="muted">☠ CRAZY BEST:</span> <span class="gold" id="title-best-crazy">0.0s</span></div>
           <div><span class="muted">🎮 GAMES:</span> <span class="safe" id="title-games">0</span></div>
-          <label class="player-name-label">
-            <span class="muted">PLAYER NAME</span>
-            <input id="player-name" class="player-name-input" maxlength="12" value="ANON" />
-          </label>
           <div id="title-testmode" class="gold" style="display: none"></div>
         </div>
 
@@ -57,10 +53,18 @@
         <h1 class="danger title-text">GAME OVER</h1>
         <div class="score-text">⏱ <span id="go-time">0.0</span> SECONDS</div>
         <div id="go-online-status" class="muted-sm margin-bottom"></div>
+        <label class="player-name-label">
+          <span class="muted">PLAYER NAME</span>
+          <input id="go-player-name" class="player-name-input" maxlength="12" value="ANON" />
+        </label>
 
         <div id="go-newbest" class="gold glow margin-bottom" style="display: none">✦ NEW BEST! ✦</div>
 
-        <button type="button" class="blink action-text margin-top" id="btn-retry">[ PRESS R TO RETRY ]</button>
+        <div class="action-list compact-actions">
+          <button type="button" class="action-text" id="btn-save-score">[ S: SAVE SCORE ]</button>
+          <button type="button" class="blink action-text" id="btn-retry">[ R: RETRY ]</button>
+          <button type="button" class="action-text" id="btn-home">[ H: HOME ]</button>
+        </div>
       </div>
 
       <div id="screen-leaderboard" class="screen" style="display: none">

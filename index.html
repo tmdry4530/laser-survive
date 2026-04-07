@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="./public/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>LASER SURVIVAL</title>
+    <link rel="stylesheet" href="./src/index.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet" />
+  </head>
+  <body>
+    <div id="root" data-mode="endless">
+      <div id="hud-overlay" style="display: none" class="hud-top">
+        <div class="hud-time">⏱ <span id="hud-time-val">0.0</span>s</div>
+        <div class="hud-best">BEST: <span id="hud-best-val">0.0</span>s</div>
+      </div>
+
+      <div id="screen-title" class="screen active">
+        <h1 class="title-text">LASER SURVIVAL</h1>
+        <div class="title-divider"></div>
+
+        <div class="stats-container stats-offset">
+          <div><span class="muted">🔥 ENDLESS BEST:</span> <span class="danger" id="title-best-endless">0.0s</span></div>
+          <div><span class="muted">☠ CRAZY BEST:</span> <span class="gold" id="title-best-crazy">0.0s</span></div>
+          <div><span class="muted">🎮 GAMES:</span> <span class="safe" id="title-games">0</span></div>
+          <label class="player-name-label">
+            <span class="muted">PLAYER NAME</span>
+            <input id="player-name" class="player-name-input" maxlength="12" value="ANON" />
+          </label>
+          <div id="title-testmode" class="gold" style="display: none"></div>
+        </div>
+
+        <div class="action-list">
+          <button type="button" class="blink action-text danger delayed" id="btn-start-endless">[ SPACE: ENDLESS MODE ]</button>
+          <button type="button" class="blink action-text gold delayed" id="btn-start-crazy">[ C: CRAZY MODE ]</button>
+          <button type="button" class="action-text" id="btn-open-leaderboard">[ L: LEADERBOARD ]</button>
+        </div>
+        <div class="muted-sm">← ↑ ↓ → TO MOVE</div>
+        <div class="muted-sm">T TO TOGGLE TEST MODE</div>
+        <div class="muted-sm margin-top">SURVIVE AS LONG AS POSSIBLE.</div>
+      </div>
+
+      <div id="screen-game" class="screen" style="display: none">
+        <canvas id="game-canvas"></canvas>
+        <div id="game-mode-label" class="game-mode-label">ENDLESS MODE</div>
+
+        <div class="game-info">
+          <span id="game-round">ROUND 1</span>
+          <span id="game-laser">LASER IN 2.8s</span>
+        </div>
+        <div id="game-item" class="game-item"></div>
+      </div>
+
+      <div id="screen-gameover" class="screen" style="display: none">
+        <h1 class="danger title-text">GAME OVER</h1>
+        <div class="score-text">⏱ <span id="go-time">0.0</span> SECONDS</div>
+        <div id="go-online-status" class="muted-sm margin-bottom"></div>
+
+        <div id="go-newbest" class="gold glow margin-bottom" style="display: none">✦ NEW BEST! ✦</div>
+
+        <button type="button" class="blink action-text margin-top" id="btn-retry">[ PRESS R TO RETRY ]</button>
+      </div>
+
+      <div id="screen-leaderboard" class="screen" style="display: none">
+        <h1 class="title-text">LEADERBOARD</h1>
+        <div class="title-divider"></div>
+        <div class="leaderboard-tabs">
+          <button type="button" id="leaderboard-tab-endless" class="leaderboard-tab active">ENDLESS</button>
+          <button type="button" id="leaderboard-tab-crazy" class="leaderboard-tab">CRAZY</button>
+        </div>
+        <div id="leaderboard-status" class="leaderboard-status">ENDLESS TOP 20</div>
+        <div id="leaderboard-best" class="leaderboard-best">YOUR BEST · --</div>
+        <ol id="leaderboard-list" class="leaderboard-list"></ol>
+        <button type="button" id="btn-leaderboard-back" class="action-text margin-top">[ ESC: BACK ]</button>
+      </div>
+    </div>
+    <script type="module" src="./src/main.js"></script>
+  </body>
+</html>

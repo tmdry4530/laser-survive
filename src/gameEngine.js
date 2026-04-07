@@ -26,8 +26,8 @@ export class GameEngine {
     this.visualX = this.createAxisPositions();
     this.visualY = this.createAxisPositions();
     this.lasers = [];
-    this.laserInterval = 2.8;
-    this.laserTimer = 2.8;
+    this.laserInterval = config.mode === 'crazy' ? 1.2 : 2.8;
+    this.laserTimer = this.laserInterval;
     this.sweepTimer = Number.POSITIVE_INFINITY;
     this.round = 1;
     this.item = null;
@@ -540,6 +540,8 @@ export class GameEngine {
       const thirdLaserChance = Math.min(0.75, Math.max(0, (difficultyTime - 95) / 110));
       const fourthLaserChance = Math.min(0.18, Math.max(0, (difficultyTime - 240) / 180));
       const fifthLaserChance = Math.min(0.24, Math.max(0, (difficultyTime - 150) / 130));
+      const sixthLaserChance = Math.min(0.28, Math.max(0, (difficultyTime - 210) / 140));
+      const seventhLaserChance = Math.min(0.22, Math.max(0, (difficultyTime - 270) / 160));
 
       if (Math.random() < secondLaserChance) {
         count += 1;
@@ -557,6 +559,14 @@ export class GameEngine {
         count += 1;
       }
 
+      if (count === 5 && this.getStageNumber() >= 6 && Math.random() < sixthLaserChance) {
+        count += 1;
+      }
+
+      if (count === 6 && this.getStageNumber() >= 8 && Math.random() < seventhLaserChance) {
+        count += 1;
+      }
+
       const smallerAxis = Math.min(this.activeRows.length, this.activeCols.length);
       const stage = this.getStageNumber();
       if (stage >= 3 && smallerAxis >= 12) {
@@ -569,6 +579,18 @@ export class GameEngine {
 
       if (stage >= 6 && smallerAxis >= 13) {
         count = Math.max(count, 5);
+      }
+
+      if (stage >= 8 && smallerAxis >= 13) {
+        count = Math.max(count, 6);
+      }
+
+      if (stage >= 10 && smallerAxis >= 14) {
+        count = Math.max(count, 7);
+      }
+
+      if (this.config.mode === 'crazy') {
+        count = Math.max(count, 4);
       }
 
       return count;
@@ -598,7 +620,12 @@ export class GameEngine {
   }
 
   getLaserQueueDelay(laserIndex, laserCount) {
-    return laserIndex * this.getLaserStagger(laserCount);
+    const stagger = this.getLaserStagger(laserCount);
+    if (this.config.mode === 'crazy' && laserCount >= 2) {
+      return laserIndex * Math.max(stagger, 0.3);
+    }
+
+    return laserIndex * stagger;
   }
 
   getStageNumber() {
@@ -824,9 +851,13 @@ export class GameEngine {
 
       if (this.laserTimer <= 0) {
         this.round += 1;
-        const minInterval = this.getMinLaserInterval();
-        const scalingFactor = this.getLaserScalingFactor();
-        this.laserInterval = Math.max(minInterval, this.laserInterval * scalingFactor);
+        if (this.config.mode === 'crazy') {
+          this.laserInterval = 0.5 + Math.random();
+        } else {
+          const minInterval = this.getMinLaserInterval();
+          const scalingFactor = this.getLaserScalingFactor();
+          this.laserInterval = Math.max(minInterval, this.laserInterval * scalingFactor);
+        }
         this.laserTimer = this.laserInterval;
 
         const numLasers = this.getLaserCount();

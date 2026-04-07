@@ -130,6 +130,8 @@ test('crazy mode starts with an endless-sized board and late-stage difficulty', 
   assert.equal(crazy.gridSize, 14);
   assert.equal(crazy.getDifficultyTime(), 180);
   assert.equal(crazy.getStageLabel(), 'STAGE 7');
+  assert.equal(crazy.laserInterval, 1.2);
+  assert.equal(crazy.laserTimer, 1.2);
 });
 
 test('slow item extends laser timer and enables cooldown effect', async () => {
@@ -438,7 +440,34 @@ test('laser count scales up over time for endless and crazy modes', async () => 
     crazy.timeAlive = 10;
 
     assert.equal(endless.getLaserCount(), 5);
-    assert.equal(crazy.getLaserCount(), 5);
+    assert.ok(crazy.getLaserCount() >= 4);
+  } finally {
+    Math.random = originalRandom;
+  }
+});
+
+test('crazy mode guarantees at least four lasers per wave', async () => {
+  installBrowserMocks();
+  const originalRandom = Math.random;
+  Math.random = () => 0.99;
+
+  try {
+    const { GameEngine } = await import(`../src/gameEngine.js?test=${Date.now()}-${Math.random()}`);
+    const canvas = {
+      width: 0,
+      height: 0,
+      getContext: () => createCanvasContext(),
+    };
+
+    const crazy = new GameEngine({
+      canvas,
+      mode: 'crazy',
+      onGameOver: () => {},
+      onUpdateHUD: () => {},
+    });
+
+    crazy.timeAlive = 0;
+    assert.ok(crazy.getLaserCount() >= 4);
   } finally {
     Math.random = originalRandom;
   }
@@ -471,7 +500,7 @@ test('laser count ramps up gradually over time', async () => {
     assert.equal(endless.getLaserCount(), 3);
 
     endless.timeAlive = 220;
-    assert.equal(endless.getLaserCount(), 5);
+    assert.equal(endless.getLaserCount(), 6);
   } finally {
     Math.random = originalRandom;
   }
@@ -509,7 +538,7 @@ test('large grids from stage 3 force denser laser waves', async () => {
   }
 });
 
-test('stage 6 large endless grids can escalate to five lasers', async () => {
+test('high-stage large endless grids can escalate beyond five lasers', async () => {
   installBrowserMocks();
   const originalRandom = Math.random;
   Math.random = () => 0;
@@ -534,6 +563,12 @@ test('stage 6 large endless grids can escalate to five lasers', async () => {
     engine.activeCols = engine.GRID_INDICES.slice(0, 14);
 
     assert.equal(engine.getLaserCount(), 5);
+
+    engine.timeAlive = 250;
+    assert.equal(engine.getLaserCount(), 6);
+
+    engine.timeAlive = 330;
+    assert.equal(engine.getLaserCount(), 7);
   } finally {
     Math.random = originalRandom;
   }
@@ -564,6 +599,65 @@ test('multi-laser waves use queued stagger delays before warning', async () => {
   assert.equal(first, 0);
   assert.ok(second > first);
   assert.ok(third > second);
+});
+
+test('crazy mode compresses the first queued laser gap to about 0.3s', async () => {
+  installBrowserMocks();
+  const { GameEngine } = await import(`../src/gameEngine.js?test=${Date.now()}-${Math.random()}`);
+  const canvas = {
+    width: 0,
+    height: 0,
+    getContext: () => createCanvasContext(),
+  };
+
+  const engine = new GameEngine({
+    canvas,
+    mode: 'crazy',
+    onGameOver: () => {},
+    onUpdateHUD: () => {},
+  });
+
+  engine.timeAlive = 0;
+  assert.equal(engine.getLaserQueueDelay(1, 3), 0.3);
+  assert.equal(engine.getLaserQueueDelay(2, 3), 0.6);
+});
+
+test('crazy mode randomizes next-wave delay between 0.5s and 1.5s', async () => {
+  installBrowserMocks();
+  const originalRandom = Math.random;
+
+  try {
+    let nextValue = 0;
+    Math.random = () => nextValue;
+    const { GameEngine } = await import(`../src/gameEngine.js?test=${Date.now()}-${Math.random()}`);
+    const canvas = {
+      width: 0,
+      height: 0,
+      getContext: () => createCanvasContext(),
+    };
+
+    const engine = new GameEngine({
+      canvas,
+      mode: 'crazy',
+      onGameOver: () => {},
+      onUpdateHUD: () => {},
+    });
+
+    engine.timeAlive = 4;
+    engine.laserTimer = 0;
+    nextValue = 0;
+    engine.handleLasers(0.1);
+    assert.equal(engine.laserInterval, 0.5);
+
+    engine.lasers = [];
+    engine.timeAlive = 4;
+    engine.laserTimer = 0;
+    nextValue = 1;
+    engine.handleLasers(0.1);
+    assert.equal(engine.laserInterval, 1.5);
+  } finally {
+    Math.random = originalRandom;
+  }
 });
 
 test('stage 5 and beyond tightens sequential laser stagger in endless mode', async () => {

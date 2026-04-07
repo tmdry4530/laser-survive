@@ -1,6 +1,7 @@
 import { loadStats, saveGameResult } from './db.js';
 import { GameEngine } from './gameEngine.js';
 import { fetchLeaderboard, fetchPlayerBest, submitScore } from './leaderboardApi.js';
+import { claimReward, fetchRewardAsset, isRewardEligible } from './rewardApi.js';
 
 const PLAYER_NAME_KEY = 'laser-player-name';
 const DEFAULT_PLAYER_NAME = 'ANON';
@@ -28,6 +29,11 @@ const goTime = document.getElementById('go-time');
 const goNewBest = document.getElementById('go-newbest');
 const goOnlineStatus = document.getElementById('go-online-status');
 const goPlayerNameInput = document.getElementById('go-player-name');
+const goRewardStatus = document.getElementById('go-reward-status');
+const goRewardPreview = document.getElementById('go-reward-preview');
+const goRewardImage = document.getElementById('go-reward-image');
+const goRewardName = document.getElementById('go-reward-name');
+const goRewardDescription = document.getElementById('go-reward-description');
 const gameCanvas = document.getElementById('game-canvas');
 
 const startEndlessButton = document.getElementById('btn-start-endless');
@@ -35,6 +41,8 @@ const startCrazyButton = document.getElementById('btn-start-crazy');
 const openLeaderboardButton = document.getElementById('btn-open-leaderboard');
 const retryButton = document.getElementById('btn-retry');
 const saveScoreButton = document.getElementById('btn-save-score');
+const claimRewardButton = document.getElementById('btn-claim-reward');
+const viewRewardButton = document.getElementById('btn-view-reward');
 const homeButton = document.getElementById('btn-home');
 const leaderboardBackButton = document.getElementById('btn-leaderboard-back');
 const leaderboardEndlessTab = document.getElementById('leaderboard-tab-endless');
@@ -52,6 +60,7 @@ let bestScoreCrazy = 0;
 let testModeEnabled = new URLSearchParams(window.location.search).get('test') === '1';
 let lastFinishedTime = null;
 let lastScoreSaved = false;
+let lastRewardClaim = null;
 
 function switchScreen(screen) {
   currentScreen = screen;
@@ -108,6 +117,15 @@ function applyModeTheme() {
   gameModeLabel.textContent = getModeBannerText();
 }
 
+function resetRewardPanel() {
+  lastRewardClaim = null;
+  goRewardStatus.textContent = '';
+  goRewardPreview.style.display = 'none';
+  goRewardImage.removeAttribute('src');
+  goRewardName.textContent = '';
+  goRewardDescription.textContent = '';
+}
+
 async function submitOnlineScore(time) {
   if (lastScoreSaved) {
     goOnlineStatus.textContent = 'SCORE ALREADY SAVED';
@@ -130,6 +148,60 @@ async function submitOnlineScore(time) {
     lastScoreSaved = true;
   } catch (error) {
     goOnlineStatus.textContent = error.message.toUpperCase();
+  }
+}
+
+async function tryClaimReward() {
+  if (lastFinishedTime === null) {
+    return;
+  }
+
+  if (!isRewardEligible(currentMode, lastFinishedTime)) {
+    goRewardStatus.textContent = 'REWARD NOT ELIGIBLE';
+    return;
+  }
+
+  goRewardStatus.textContent = 'CLAIMING REWARD...';
+  savePlayerName();
+
+  try {
+    const result = await claimReward({
+      mode: currentMode,
+      playerName: getPlayerName(),
+      survivalTime: lastFinishedTime,
+    });
+    lastRewardClaim = result;
+
+    if (result.status === 'claimed') {
+      goRewardStatus.textContent = 'REWARD CLAIMED';
+    } else if (result.status === 'already_claimed') {
+      goRewardStatus.textContent = 'ALREADY CLAIMED';
+    } else if (result.status === 'not_eligible') {
+      goRewardStatus.textContent = 'REWARD NOT ELIGIBLE';
+    } else {
+      goRewardStatus.textContent = String(result.status).toUpperCase();
+    }
+  } catch (error) {
+    goRewardStatus.textContent = error.message.toUpperCase();
+  }
+}
+
+async function viewReward() {
+  if (!lastRewardClaim && !isRewardEligible(currentMode, lastFinishedTime ?? 0)) {
+    goRewardStatus.textContent = 'CLAIM REWARD FIRST';
+    return;
+  }
+
+  goRewardStatus.textContent = 'LOADING REWARD...';
+  try {
+    const asset = await fetchRewardAsset({ mode: currentMode });
+    goRewardName.textContent = asset.name;
+    goRewardDescription.textContent = asset.description;
+    goRewardImage.src = asset.signedUrl;
+    goRewardPreview.style.display = 'flex';
+    goRewardStatus.textContent = 'REWARD READY';
+  } catch (error) {
+    goRewardStatus.textContent = error.message.toUpperCase();
   }
 }
 
@@ -194,6 +266,12 @@ function bindControls() {
       void submitOnlineScore(lastFinishedTime);
     }
   });
+  claimRewardButton.addEventListener('click', () => {
+    void tryClaimReward();
+  });
+  viewRewardButton.addEventListener('click', () => {
+    void viewReward();
+  });
   homeButton.addEventListener('click', () => switchScreen('TITLE'));
   leaderboardBackButton.addEventListener('click', () => switchScreen('TITLE'));
   leaderboardEndlessTab.addEventListener('click', () => openLeaderboard('endless'));
@@ -250,6 +328,16 @@ function bindControls() {
       }
     }
 
+    if (event.code === 'KeyG' && currentScreen === 'GAMEOVER') {
+      event.preventDefault();
+      void tryClaimReward();
+    }
+
+    if (event.code === 'KeyV' && currentScreen === 'GAMEOVER') {
+      event.preventDefault();
+      void viewReward();
+    }
+
     if (event.code === 'KeyH' && currentScreen === 'GAMEOVER') {
       event.preventDefault();
       switchScreen('TITLE');
@@ -281,6 +369,10 @@ function startGame(mode = 'endless') {
       goNewBest.style.display = isNewBest ? 'block' : 'none';
       goPlayerNameInput.value = normalizePlayerName(window.localStorage.getItem(PLAYER_NAME_KEY));
       goOnlineStatus.textContent = 'ENTER NAME THEN SAVE SCORE';
+      resetRewardPanel();
+      if (isRewardEligible(mode, time)) {
+        goRewardStatus.textContent = `REWARD AVAILABLE · ${mode === 'crazy' ? '90S' : '180S'}`;
+      }
       switchScreen('GAMEOVER');
     },
     onUpdateHUD: (time, round, laserIn, itemStatus = '', stageLabel = '') => {

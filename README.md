@@ -76,6 +76,35 @@ supabase/schema.sql
 - 공개 읽기 / 검증된 삽입 RLS 정책
 - `submit_score(...)` RPC
 - `player_best(...)` RPC
+- `rewards` / `reward_claims` 테이블
+- `claim_reward(...)` 보상 클레임 함수
+
+## 보상 클레임 설정
+
+현재 조건:
+- Endless 180초 생존 시 기기당 1회 클레임
+- Crazy 90초 생존 시 기기당 1회 클레임
+
+추가로 Supabase에 아래를 준비해야 한다:
+
+1. **Storage bucket**
+   - 이름: `reward-assets`
+   - 타입: **private**
+
+2. **보상 이미지 업로드**
+   - Endless: `endless/reward-01.png` ~ `endless/reward-12.png`
+   - Crazy: `crazy/reward.png`
+
+3. **Edge Functions 배포**
+   - `supabase/functions/claim-reward`
+   - `supabase/functions/reward-asset`
+
+4. **Edge Function 환경변수**
+   - `SUPABASE_URL`
+   - `SUPABASE_SERVICE_ROLE_KEY`
+
+Endless는 아직 클레임되지 않은 12개 보상 중 하나가 무작위로 배정되고,
+Crazy는 단일 보상이 배정된다.
 
 ## 로컬 서버 API
 

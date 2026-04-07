@@ -53,6 +53,7 @@
         <h1 class="danger title-text">GAME OVER</h1>
         <div class="score-text">⏱ <span id="go-time">0.0</span> SECONDS</div>
         <div id="go-online-status" class="muted-sm margin-bottom"></div>
+        <div id="go-reward-status" class="gold margin-bottom"></div>
         <label class="player-name-label">
           <span class="muted">PLAYER NAME</span>
           <input id="go-player-name" class="player-name-input" maxlength="12" value="ANON" />
@@ -62,8 +63,18 @@
 
         <div class="action-list compact-actions">
           <button type="button" class="action-text" id="btn-save-score">[ S: SAVE SCORE ]</button>
+          <button type="button" class="action-text gold" id="btn-claim-reward">[ G: CLAIM REWARD ]</button>
+          <button type="button" class="action-text gold" id="btn-view-reward">[ V: VIEW REWARD ]</button>
           <button type="button" class="blink action-text" id="btn-retry">[ R: RETRY ]</button>
           <button type="button" class="action-text" id="btn-home">[ H: HOME ]</button>
+        </div>
+
+        <div id="go-reward-preview" class="reward-preview" style="display: none">
+          <img id="go-reward-image" class="reward-image" alt="Claimed reward preview" />
+          <div class="reward-copy">
+            <div id="go-reward-name" class="gold"></div>
+            <div id="go-reward-description" class="muted-sm"></div>
+          </div>
         </div>
       </div>
 

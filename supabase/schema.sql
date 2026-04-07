@@ -186,6 +186,7 @@ as $$
 declare
   v_reward public.rewards%rowtype;
   v_existing public.reward_claims%rowtype;
+  v_claimed_reward public.rewards%rowtype;
 begin
   if p_mode not in ('endless', 'crazy') then
     raise exception 'Invalid mode';
@@ -200,8 +201,26 @@ begin
   end if;
 
   select *
+    into v_existing
+    from public.reward_claims
+   where mode = p_mode
+     and device_id_hash = p_device_id_hash
+   limit 1;
+
+  if found then
+    select *
+      into v_claimed_reward
+      from public.rewards
+     where id = v_existing.reward_id
+     limit 1;
+
+    return query select 'already_claimed', v_claimed_reward.id, v_claimed_reward.name, v_claimed_reward.description, v_claimed_reward.required_time;
+    return;
+  end if;
+
+  select *
     into v_reward
-    from public.rewards
+    from public.rewards rewards
    where rewards.mode = p_mode
      and rewards.active = true
      and not exists (
@@ -219,18 +238,6 @@ begin
 
   if p_survival_time < v_reward.required_time then
     return query select 'not_eligible', v_reward.id, v_reward.name, v_reward.description, v_reward.required_time;
-    return;
-  end if;
-
-  select *
-    into v_existing
-    from public.reward_claims
-   where mode = p_mode
-     and device_id_hash = p_device_id_hash
-   limit 1;
-
-  if found then
-    return query select 'already_claimed', v_reward.id, v_reward.name, v_reward.description, v_reward.required_time;
     return;
   end if;
 

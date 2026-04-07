@@ -88,35 +88,19 @@ async function renderStats() {
 
 function renderTestModeState() {
   titleTestMode.style.display = testModeEnabled ? 'block' : 'none';
-  titleTestMode.textContent = testModeEnabled ? '[ TEST MODE: ON ]' : '';
+  titleTestMode.textContent = testModeEnabled ? '[ CRAZY TEST MODE: ON ]' : '';
 }
 
 function getHudItemText(itemStatus = '') {
-  if (currentMode === 'crazy' && testModeEnabled && itemStatus) {
-    return `CRAZY TEST · ${itemStatus}`;
-  }
-
-  if (currentMode === 'crazy' && testModeEnabled) {
-    return 'CRAZY TEST · INVINCIBLE';
-  }
-
-  if (testModeEnabled && itemStatus) {
-    return `TEST MODE · ${itemStatus}`;
-  }
-
-  if (testModeEnabled) {
-    return 'TEST MODE · INVINCIBLE';
-  }
-
   return itemStatus;
 }
 
 function getModeBannerText() {
   if (currentMode === 'crazy') {
-    return testModeEnabled ? 'CRAZY MODE · TEST' : 'CRAZY MODE · NO MERCY';
+    return 'CRAZY MODE · NO MERCY';
   }
 
-  return testModeEnabled ? 'ENDLESS MODE · TEST' : 'ENDLESS MODE';
+  return 'ENDLESS MODE';
 }
 
 function applyModeTheme() {
@@ -138,7 +122,7 @@ async function submitOnlineScore(time) {
       playerName: getPlayerName(),
       mode: currentMode,
       survivalTime: time,
-      isTestMode: testModeEnabled,
+      isTestMode: false,
       clientVersion: '1.0.0',
     });
 
@@ -285,8 +269,8 @@ function startGame(mode = 'endless') {
   engine = new GameEngine({
     canvas: gameCanvas,
     mode,
-    testMode: testModeEnabled,
-    initialTimeAlive: testModeEnabled ? 90 : 0,
+    testMode: mode === 'crazy' && testModeEnabled,
+    initialTimeAlive: 0,
     onGameOver: async (time, won) => {
       const isNewBest = await saveGameResult(time, won, mode);
       await renderStats();

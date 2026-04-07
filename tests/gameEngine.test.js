@@ -360,6 +360,64 @@ test('predictive targeting leads the player when a 3+ laser wave is active', asy
   assert.deepEqual(target, { v: true, idx: 7 });
 });
 
+test('crazy pincer waves prefer adjacent trap lines over the exact current line', async () => {
+  installBrowserMocks();
+  const { GameEngine } = await import(`../src/gameEngine.js?test=${Date.now()}-${Math.random()}`);
+  const canvas = {
+    width: 0,
+    height: 0,
+    getContext: () => createCanvasContext(),
+  };
+
+  const engine = new GameEngine({
+    canvas,
+    mode: 'crazy',
+    onGameOver: () => {},
+    onUpdateHUD: () => {},
+  });
+
+  engine.player.x = 5;
+  engine.player.y = 5;
+
+  const target = engine.chooseCrazyTarget([
+    { v: true, idx: 5 },
+    { v: true, idx: 4 },
+    { v: true, idx: 6 },
+  ], 0, 4, 'PINCER', []);
+
+  assert.notDeepEqual(target, { v: true, idx: 5 });
+  assert.ok(target.idx === 4 || target.idx === 6);
+});
+
+test('crazy hunt waves still bias toward the predicted forward path', async () => {
+  installBrowserMocks();
+  const { GameEngine } = await import(`../src/gameEngine.js?test=${Date.now()}-${Math.random()}`);
+  const canvas = {
+    width: 0,
+    height: 0,
+    getContext: () => createCanvasContext(),
+  };
+
+  const engine = new GameEngine({
+    canvas,
+    mode: 'crazy',
+    onGameOver: () => {},
+    onUpdateHUD: () => {},
+  });
+
+  engine.player.x = 5;
+  engine.player.y = 5;
+  engine.keys.add('ArrowRight');
+
+  const target = engine.chooseCrazyTarget([
+    { v: true, idx: 5 },
+    { v: true, idx: 6 },
+    { v: true, idx: 7 },
+  ], 2, 4, 'HUNT', []);
+
+  assert.deepEqual(target, { v: true, idx: 7 });
+});
+
 test('endless mode stops shrinking once it reaches the grid floor', async () => {
   installBrowserMocks();
   const { GameEngine } = await import(`../src/gameEngine.js?test=${Date.now()}-${Math.random()}`);
@@ -809,6 +867,44 @@ test('items spawn more frequently and favor expand items at higher stages', asyn
   }
 });
 
+test('crazy mode accelerates recovery item cadence and weight', async () => {
+  installBrowserMocks();
+  const originalRandom = Math.random;
+  Math.random = () => 0;
+
+  try {
+    const { GameEngine } = await import(`../src/gameEngine.js?test=${Date.now()}-${Math.random()}`);
+    const canvas = {
+      width: 0,
+      height: 0,
+      getContext: () => createCanvasContext(),
+    };
+
+    const endless = new GameEngine({
+      canvas,
+      mode: 'endless',
+      onGameOver: () => {},
+      onUpdateHUD: () => {},
+    });
+    endless.timeAlive = 160;
+
+    const crazy = new GameEngine({
+      canvas,
+      mode: 'crazy',
+      onGameOver: () => {},
+      onUpdateHUD: () => {},
+    });
+    crazy.timeAlive = 160;
+    crazy.activeRows = crazy.GRID_INDICES.slice(0, 10);
+    crazy.activeCols = crazy.GRID_INDICES.slice(0, 10);
+
+    assert.ok(crazy.getNextItemSpawnDelay() < endless.getNextItemSpawnDelay());
+    assert.ok(crazy.getExpandItemWeight() > endless.getExpandItemWeight());
+  } finally {
+    Math.random = originalRandom;
+  }
+});
+
 test('sweep lasers become available after 120 seconds and use a separate lane', async () => {
   installBrowserMocks();
   const originalRandom = Math.random;
@@ -836,6 +932,40 @@ test('sweep lasers become available after 120 seconds and use a separate lane', 
     assert.equal(engine.lasers.length, 1);
     assert.equal(engine.lasers[0].kind, 'SWEEP');
     assert.equal(engine.lasers[0].state, 'WARNING');
+  } finally {
+    Math.random = originalRandom;
+  }
+});
+
+test('wave 15+ can escalate sweep lasers to two with staggered cross-axis targets', async () => {
+  installBrowserMocks();
+  const originalRandom = Math.random;
+  Math.random = () => 0;
+
+  try {
+    const { GameEngine } = await import(`../src/gameEngine.js?test=${Date.now()}-${Math.random()}`);
+    const canvas = {
+      width: 0,
+      height: 0,
+      getContext: () => createCanvasContext(),
+    };
+
+    const engine = new GameEngine({
+      canvas,
+      mode: 'endless',
+      onGameOver: () => {},
+      onUpdateHUD: () => {},
+    });
+
+    engine.timeAlive = 130;
+    engine.round = 20;
+    engine.sweepTimer = 0;
+    engine.updateSweepLasers(0.1);
+
+    const sweepLasers = engine.lasers.filter((laser) => laser.kind === 'SWEEP');
+    assert.equal(sweepLasers.length, 2);
+    assert.notEqual(sweepLasers[0].isVertical, sweepLasers[1].isVertical);
+    assert.ok(sweepLasers[1].state === 'QUEUED' || sweepLasers[1].state === 'WARNING');
   } finally {
     Math.random = originalRandom;
   }
@@ -870,6 +1000,7 @@ test('endless restores a line and reschedules quickly if no laser targets are av
   assert.equal(engine.itemSpawnTimer, 1);
   assert.ok(engine.laserTimer <= 0.8);
 });
+
 
 test('sweep lasers hit but do not delete grid lines', async () => {
   installBrowserMocks();

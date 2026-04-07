@@ -251,6 +251,14 @@ export class GameEngine {
       return 10 + Math.random() * 6;
     }
 
+    if (this.config.mode === 'crazy') {
+      const stage = this.getStageNumber();
+      if (stage >= 8) return 1.8 + Math.random() * 1.2;
+      if (stage >= 6) return 2.2 + Math.random() * 1.4;
+      if (stage >= 4) return 2.8 + Math.random() * 1.7;
+      return 3.4 + Math.random() * 1.8;
+    }
+
     const stage = this.getStageNumber();
     if (stage >= 7) {
       return 2.8 + Math.random() * 1.8;
@@ -282,6 +290,13 @@ export class GameEngine {
   getExpandItemWeight() {
     if (!this.isEndlessLikeMode()) {
       return this.ITEM_EXPAND_WEIGHT;
+    }
+
+    if (this.config.mode === 'crazy') {
+      const smallerAxis = Math.min(this.activeRows.length, this.activeCols.length);
+      if (smallerAxis <= 10) return 0.98;
+      if (smallerAxis <= 12) return 0.95;
+      return 0.9;
     }
 
     const smallerAxis = Math.min(this.activeRows.length, this.activeCols.length);
@@ -439,7 +454,8 @@ export class GameEngine {
 
   applyItem(type) {
     if (type === 'EXPAND') {
-      const restoredCount = this.restoreMissingLines(this.isEndlessLikeMode() ? 3 : 2);
+      const restoreCount = this.config.mode === 'crazy' ? 4 : this.isEndlessLikeMode() ? 3 : 2;
+      const restoredCount = this.restoreMissingLines(restoreCount);
       if (restoredCount === 0) {
         this.activateSlowField();
       }
@@ -653,6 +669,23 @@ export class GameEngine {
     return 7 + Math.random() * 4;
   }
 
+  getSweepCount() {
+    if (this.round < 15) {
+      return 1;
+    }
+
+    const chance = this.round >= 25 ? 0.75 : this.round >= 20 ? 0.5 : 0.28;
+    return Math.random() < chance ? 2 : 1;
+  }
+
+  getSweepQueueDelay(sweepIndex) {
+    if (sweepIndex === 0) {
+      return 0;
+    }
+
+    return 0.2 + Math.random() * 0.2;
+  }
+
   getMovementSafeTargets(targets) {
     const recentlyMoved = performance.now() - this.player.lastMoveTime < this.MOVE_GRACE_WINDOW;
     if (!recentlyMoved) {
@@ -753,6 +786,77 @@ export class GameEngine {
     })[0];
   }
 
+  getCrazyWaveType(laserCount) {
+    if (laserCount >= 6) {
+      return 'BOX';
+    }
+
+    const roll = Math.random();
+    if (roll < 0.34) return 'HUNT';
+    if (roll < 0.67) return 'PINCER';
+    return 'BOX';
+  }
+
+  getCrazyTargetScore(target, predictedPlayer, waveType, laserIndex, chosenTargets = [], movement) {
+    const predictedIndex = target.v ? predictedPlayer.x : predictedPlayer.y;
+    const offset = target.idx - predictedIndex;
+    const absOffset = Math.abs(offset);
+    const lastTarget = chosenTargets.at(-1);
+    const previousAxisPenalty = lastTarget && lastTarget.v === target.v ? 0.75 : 0;
+    const movementDelta = target.v ? movement.dx : movement.dy;
+    const movementAligned = movementDelta !== 0 && Math.sign(offset || movementDelta) === Math.sign(movementDelta);
+
+    if (waveType === 'HUNT') {
+      let score = absOffset * 2 + previousAxisPenalty;
+      if ((laserIndex % 2 === 0) !== target.v) {
+        score += 0.8;
+      }
+      if (movementAligned) {
+        score -= 0.6;
+      }
+      return score;
+    }
+
+    if (waveType === 'PINCER') {
+      let score = Math.abs(absOffset - 1) + previousAxisPenalty;
+      if (laserIndex === 0 && absOffset === 0) {
+        score += 0.9;
+      }
+      if (chosenTargets.some((candidate) => candidate.v === target.v && candidate.idx === predictedIndex - offset)) {
+        score -= 0.8;
+      }
+      return score;
+    }
+
+    let score = Math.min(absOffset, Math.abs(absOffset - 1), Math.abs(absOffset - 2));
+    if ((laserIndex % 2 === 0) !== target.v) {
+      score += 0.4;
+    }
+    if (movementAligned) {
+      score -= 0.4;
+    }
+    return score + previousAxisPenalty;
+  }
+
+  chooseCrazyTarget(targets, laserIndex, laserCount, waveType, chosenTargets = []) {
+    if (targets.length === 0) {
+      return null;
+    }
+
+    const predictedPlayer = this.getPredictedPlayerPosition(laserIndex, laserCount);
+    const movement = this.getDesiredMovementVector();
+
+    return [...targets].sort((left, right) => {
+      const scoreDiff = this.getCrazyTargetScore(left, predictedPlayer, waveType, laserIndex, chosenTargets, movement)
+        - this.getCrazyTargetScore(right, predictedPlayer, waveType, laserIndex, chosenTargets, movement);
+      if (scoreDiff !== 0) {
+        return scoreDiff;
+      }
+
+      return left.idx - right.idx;
+    })[0];
+  }
+
   canDeleteTarget(isVertical) {
     const axisSize = isVertical ? this.activeCols.length : this.activeRows.length;
     if (axisSize <= 1) {
@@ -790,8 +894,9 @@ export class GameEngine {
     return true;
   }
 
-  chooseSweepTarget() {
+  chooseSweepTarget(chosenTargets = [], sweepIndex = 0) {
     const targets = [];
+    const preferredAxis = sweepIndex % 2 === 0;
 
     for (const col of this.activeCols) {
       if (!this.lasers.some((laser) => laser.isVertical && laser.index === col)) {
@@ -805,23 +910,45 @@ export class GameEngine {
       }
     }
 
-    return this.chooseTrackedTarget(targets, 0, 1);
+    const filteredTargets = chosenTargets.length === 0
+      ? targets
+      : targets.filter((target) => target.v !== chosenTargets[chosenTargets.length - 1].v);
+    const candidateTargets = filteredTargets.length > 0 ? filteredTargets : targets;
+
+    return [...candidateTargets].sort((left, right) => {
+      if (left.v !== right.v) {
+        return left.v === preferredAxis ? -1 : 1;
+      }
+
+      return this.getTargetDistance(left) - this.getTargetDistance(right);
+    })[0] ?? null;
   }
 
-  spawnSweepLaser() {
-    const target = this.chooseSweepTarget();
-    if (!target) {
+  spawnSweepLasers() {
+    const sweepCount = this.getSweepCount();
+    const chosenTargets = [];
+
+    for (let index = 0; index < sweepCount; index += 1) {
+      const target = this.chooseSweepTarget(chosenTargets, index);
+      if (!target) {
+        continue;
+      }
+
+      const queueDelay = this.getSweepQueueDelay(index);
+      this.lasers.push({
+        kind: 'SWEEP',
+        isVertical: target.v,
+        index: target.idx,
+        state: queueDelay > 0 ? 'QUEUED' : 'WARNING',
+        stateTimer: queueDelay > 0 ? queueDelay : this.LASER_WARNING_LEAD,
+      });
+      chosenTargets.push(target);
+    }
+
+    if (chosenTargets.length === 0) {
       this.sweepTimer = this.getNextSweepDelay();
       return;
     }
-
-    this.lasers.push({
-      kind: 'SWEEP',
-      isVertical: target.v,
-      index: target.idx,
-      state: 'WARNING',
-      stateTimer: this.LASER_WARNING_LEAD,
-    });
     this.sweepTimer = this.getNextSweepDelay();
   }
 
@@ -840,7 +967,7 @@ export class GameEngine {
 
     this.sweepTimer -= dt;
     if (this.sweepTimer <= 0) {
-      this.spawnSweepLaser();
+      this.spawnSweepLasers();
     }
   }
 
@@ -862,6 +989,8 @@ export class GameEngine {
 
         const numLasers = this.getLaserCount();
 
+        const waveType = this.config.mode === 'crazy' ? this.getCrazyWaveType(numLasers) : 'TRACK';
+        const chosenTargets = [];
         let spawnedLaserCount = 0;
         for (let index = 0; index < numLasers; index += 1) {
           const validTargets = [];
@@ -880,7 +1009,9 @@ export class GameEngine {
 
           const safeTargets = this.getMovementSafeTargets(validTargets);
           if (safeTargets.length > 0) {
-            const target = this.chooseTrackedTarget(safeTargets, index, numLasers);
+            const target = this.config.mode === 'crazy'
+              ? this.chooseCrazyTarget(safeTargets, index, numLasers, waveType, chosenTargets)
+              : this.chooseTrackedTarget(safeTargets, index, numLasers);
             const queueDelay = this.getLaserQueueDelay(index, numLasers);
             this.lasers.push({
               kind: 'NORMAL',
@@ -889,6 +1020,7 @@ export class GameEngine {
               state: queueDelay > 0 ? 'QUEUED' : 'WARNING',
               stateTimer: queueDelay > 0 ? queueDelay : this.LASER_WARNING_LEAD,
             });
+            chosenTargets.push(target);
             spawnedLaserCount += 1;
           }
         }

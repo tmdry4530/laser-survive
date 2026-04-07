@@ -23,7 +23,7 @@ test('config endpoint exposes public Supabase config only', async () => {
   const ctx = await startTestServer();
 
   try {
-    const text = await fetch(`${ctx.baseUrl}/app-config.js`).then((res) => res.text());
+    const text = await fetch(`${ctx.baseUrl}/api/config.js`).then((res) => res.text());
     assert.match(text, /window\.__LASER_CONFIG__/);
     assert.match(text, /demo\.supabase\.co/);
     assert.match(text, /anon-key/);

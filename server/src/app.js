@@ -25,7 +25,7 @@ export function createApp({ staticRoot = projectRoot } = {}) {
     res.json({ ok: true, supabaseConfigured: Boolean(config.supabaseUrl && config.supabaseAnonKey) });
   });
 
-  app.get('/app-config.js', (_req, res) => {
+  app.get('/api/config.js', (_req, res) => {
     const config = getPublicConfig();
     res.type('application/javascript').send(
       `window.__LASER_CONFIG__ = ${JSON.stringify(config)};`,

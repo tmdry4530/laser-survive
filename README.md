@@ -35,6 +35,25 @@ python3 -m http.server 4173
 이 경우 프론트는 `app-config.js`를 제공받지 못하므로 온라인 랭킹은 비활성화된다.  
 온라인 기능까지 쓰려면 `npm start`로 실행하는 것을 권장한다.
 
+## Vercel 배포
+
+이 프로젝트는 Vercel 배포를 위해 아래 파일을 포함한다:
+
+- `vercel.json`
+- `api/config.js`
+- `api/health.js`
+
+Vercel 환경변수에 다음 값을 넣으면 된다:
+
+```env
+SUPABASE_URL=...
+SUPABASE_ANON_KEY=...
+```
+
+배포 후:
+- `/api/config.js` 가 public Supabase config를 주입
+- `/api/health` 가 환경설정 상태를 반환
+
 ## 온라인 기능
 
 - 타이틀 화면에서 플레이어 이름 입력

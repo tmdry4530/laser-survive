@@ -2,21 +2,17 @@ const DB_NAME = 'LaserSurvivalDB';
 const DB_VERSION = 3;
 const STORE_NAME = 'records';
 const DEFAULT_STATS = Object.freeze({
-  highscore: 0,
   highscoreEndless: 0,
   highscoreCrazy: 0,
   games: 0,
-  wins: 0,
   history: [],
 });
 
 function cloneDefaultStats() {
   return {
-    highscore: DEFAULT_STATS.highscore,
     highscoreEndless: DEFAULT_STATS.highscoreEndless,
     highscoreCrazy: DEFAULT_STATS.highscoreCrazy,
     games: DEFAULT_STATS.games,
-    wins: DEFAULT_STATS.wins,
     history: [],
   };
 }
@@ -70,21 +66,17 @@ function waitForTransaction(transaction) {
 }
 
 async function readStatsFromStore(store) {
-  const [highscore, highscoreEndless, highscoreCrazy, games, wins, history] = await Promise.all([
-    readValue(store, 'highscore', 0),
+  const [highscoreEndless, highscoreCrazy, games, history] = await Promise.all([
     readValue(store, 'highscoreEndless', 0),
     readValue(store, 'highscoreCrazy', 0),
     readValue(store, 'games', 0),
-    readValue(store, 'wins', 0),
     readValue(store, 'history', []),
   ]);
 
   return {
-    highscore,
     highscoreEndless,
     highscoreCrazy,
     games,
-    wins,
     history: Array.isArray(history) ? history : [],
   };
 }
@@ -117,20 +109,13 @@ export async function saveGameResult(time, won, mode) {
     const stats = await readStatsFromStore(store);
 
     const nextStats = {
-      highscore: stats.highscore,
       highscoreEndless: stats.highscoreEndless,
       highscoreCrazy: stats.highscoreCrazy,
       games: stats.games + 1,
-      wins: stats.wins + (won && mode === '60s' ? 1 : 0),
       history: [{ time, date: new Date().toISOString(), won, mode }, ...stats.history].slice(0, 10),
     };
 
     let isNewBest = false;
-
-    if (mode === '60s' && time > nextStats.highscore) {
-      nextStats.highscore = time;
-      isNewBest = true;
-    }
 
     if (mode === 'endless' && time > nextStats.highscoreEndless) {
       nextStats.highscoreEndless = time;
@@ -143,11 +128,9 @@ export async function saveGameResult(time, won, mode) {
     }
 
     await Promise.all([
-      writeValue(store, 'highscore', nextStats.highscore),
       writeValue(store, 'highscoreEndless', nextStats.highscoreEndless),
       writeValue(store, 'highscoreCrazy', nextStats.highscoreCrazy),
       writeValue(store, 'games', nextStats.games),
-      writeValue(store, 'wins', nextStats.wins),
       writeValue(store, 'history', nextStats.history),
     ]);
 

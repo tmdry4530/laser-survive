@@ -30,11 +30,10 @@ function installBrowserMocks() {
   };
 }
 
-test('GameEngine triggers victory at 60 seconds in 60s mode', async () => {
-  const browser = installBrowserMocks();
+test('GameEngine initializes the endless board and canvas sizing correctly', async () => {
+  installBrowserMocks();
   const { GameEngine } = await import(`../src/gameEngine.js?test=${Date.now()}-${Math.random()}`);
 
-  let result = null;
   const canvas = {
     width: 0,
     height: 0,
@@ -43,24 +42,15 @@ test('GameEngine triggers victory at 60 seconds in 60s mode', async () => {
 
   const engine = new GameEngine({
     canvas,
-    mode: '60s',
-    onGameOver: (time, won) => {
-      result = { time, won };
-    },
+    mode: 'endless',
+    onGameOver: () => {},
     onUpdateHUD: () => {},
   });
 
-  engine.running = true;
-  engine.timeAlive = 60;
-  browser.advance(1000);
-  engine.update(0.016);
-
-  assert.deepEqual(result, { time: 60, won: true });
   assert.equal(canvas.width, 520);
   assert.equal(canvas.height, 520);
-  assert.equal(engine.running, false);
-  assert.equal(browser.listeners.has('keydown'), false);
-  assert.equal(browser.listeners.has('keyup'), false);
+  assert.equal(engine.gridSize, 14);
+  assert.equal(engine.activeRows.length, 14);
 });
 
 test('expand item restores multiple removed lines in endless mode', async () => {
@@ -92,7 +82,7 @@ test('expand item restores multiple removed lines in endless mode', async () => 
   }
 });
 
-test('endless mode starts on a larger board than 60s mode', async () => {
+test('endless and crazy modes share the larger board configuration', async () => {
   installBrowserMocks();
   const { GameEngine } = await import(`../src/gameEngine.js?test=${Date.now()}-${Math.random()}`);
   const canvas = {
@@ -108,15 +98,15 @@ test('endless mode starts on a larger board than 60s mode', async () => {
     onUpdateHUD: () => {},
   });
 
-  const timed = new GameEngine({
+  const crazy = new GameEngine({
     canvas,
-    mode: '60s',
+    mode: 'crazy',
     onGameOver: () => {},
     onUpdateHUD: () => {},
   });
 
   assert.equal(endless.gridSize, 14);
-  assert.equal(timed.gridSize, 10);
+  assert.equal(crazy.gridSize, 14);
   assert.equal(endless.activeRows.length, 14);
   assert.equal(endless.CANVAS_SIZE, 520);
 });
@@ -199,7 +189,7 @@ test('spawnItem can favor grid expansion when restoration is available', async (
   }
 });
 
-test('late-game interval settings are softer than the original hard wall', async () => {
+test('crazy mode starts with harsher interval settings than endless', async () => {
   installBrowserMocks();
   const { GameEngine } = await import(`../src/gameEngine.js?test=${Date.now()}-${Math.random()}`);
   const canvas = {
@@ -216,18 +206,18 @@ test('late-game interval settings are softer than the original hard wall', async
   });
   endless.timeAlive = 50;
 
-  const timed = new GameEngine({
+  const crazy = new GameEngine({
     canvas,
-    mode: '60s',
+    mode: 'crazy',
     onGameOver: () => {},
     onUpdateHUD: () => {},
   });
-  timed.timeAlive = 45;
+  crazy.timeAlive = 45;
 
   assert.equal(endless.getMinLaserInterval(), 0.82);
   assert.equal(endless.getLaserScalingFactor(), 0.965);
-  assert.equal(timed.getMinLaserInterval(), 0.72);
-  assert.equal(timed.getLaserScalingFactor(), 0.965);
+  assert.equal(crazy.getMinLaserInterval(), 0.6);
+  assert.equal(crazy.getLaserScalingFactor(), 0.978);
 });
 
 test('recent movement filters out adjacent laser targets when alternatives exist', async () => {
@@ -241,7 +231,7 @@ test('recent movement filters out adjacent laser targets when alternatives exist
 
   const engine = new GameEngine({
     canvas,
-    mode: '60s',
+    mode: 'endless',
     onGameOver: () => {},
     onUpdateHUD: () => {},
   });
@@ -418,7 +408,7 @@ test('narrow endless boards still allow deletion on axes above the floor', async
   assert.equal(engine.canDeleteTarget(true), false);
 });
 
-test('laser count scales up over time for both modes', async () => {
+test('laser count scales up over time for endless and crazy modes', async () => {
   installBrowserMocks();
   const originalRandom = Math.random;
   Math.random = () => 0;
@@ -439,16 +429,16 @@ test('laser count scales up over time for both modes', async () => {
     });
     endless.timeAlive = 200;
 
-    const timed = new GameEngine({
+    const crazy = new GameEngine({
       canvas,
-      mode: '60s',
+      mode: 'crazy',
       onGameOver: () => {},
       onUpdateHUD: () => {},
     });
-    timed.timeAlive = 55;
+    crazy.timeAlive = 10;
 
     assert.equal(endless.getLaserCount(), 5);
-    assert.equal(timed.getLaserCount(), 2);
+    assert.equal(crazy.getLaserCount(), 5);
   } finally {
     Math.random = originalRandom;
   }

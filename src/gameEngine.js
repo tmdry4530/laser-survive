@@ -2,7 +2,7 @@ export class GameEngine {
   constructor(config) {
     this.CANVAS_SIZE = 520;
     this.CANVAS_CENTER = this.CANVAS_SIZE / 2;
-    this.gridSize = config.mode === '60s' ? 10 : 14;
+    this.gridSize = 14;
     this.GRID_GAP = this.gridSize > 10 ? 2 : 4;
     this.CELL_SIZE = this.gridSize > 10 ? 34 : 47;
     this.GRID_INDICES = Array.from({ length: this.gridSize }, (_, index) => index);
@@ -38,7 +38,7 @@ export class GameEngine {
     this.nextMove = null;
     this.testMode = Boolean(config.testMode);
     this.config = config;
-    this.itemSpawnTimer = config.mode === '60s' ? Number.POSITIVE_INFINITY : this.getNextItemSpawnDelay();
+    this.itemSpawnTimer = this.getNextItemSpawnDelay();
 
     config.canvas.width = this.CANVAS_SIZE;
     config.canvas.height = this.CANVAS_SIZE;
@@ -145,13 +145,6 @@ export class GameEngine {
   }
 
   update(dt) {
-    if (this.config.mode === '60s' && this.timeAlive >= 60) {
-      this.config.onGameOver(60, true);
-      this.spawnParticles(this.CANVAS_CENTER, this.CANVAS_SIZE, 'VICTORY');
-      this.stop();
-      return;
-    }
-
     this.timeAlive += dt;
 
     if (this.screenShake > 0) {
@@ -495,10 +488,6 @@ export class GameEngine {
 
   getMinLaserInterval() {
     const difficultyTime = this.getDifficultyTime();
-    if (this.config.mode === '60s') {
-      return this.timeAlive > 40 ? 0.72 : 0.8;
-    }
-
     if (difficultyTime > 210) {
       return 0.6;
     }
@@ -524,10 +513,6 @@ export class GameEngine {
 
   getLaserScalingFactor() {
     const difficultyTime = this.getDifficultyTime();
-    if (this.config.mode === '60s') {
-      return this.timeAlive > 40 ? 0.965 : 0.94;
-    }
-
     if (difficultyTime > 180) {
       return 0.978;
     }
@@ -589,8 +574,6 @@ export class GameEngine {
       return count;
     }
 
-    const extraLaserChance = Math.min(0.5, Math.max(0, (this.timeAlive - 20) / 55));
-    return 1 + (Math.random() < extraLaserChance ? 1 : 0);
   }
 
   getLaserStagger(laserCount) {
@@ -598,19 +581,17 @@ export class GameEngine {
       return 0;
     }
 
-    const baseStagger = this.isEndlessLikeMode() ? 0.3 : 0.24;
-    const minStagger = this.isEndlessLikeMode() ? 0.08 : 0.14;
-    const difficultySpan = this.isEndlessLikeMode() ? 200 : 60;
+    const baseStagger = 0.3;
+    const minStagger = 0.08;
+    const difficultySpan = 200;
     const difficultyFactor = Math.min(1, this.getDifficultyTime() / difficultySpan);
-    let stagger = Math.max(minStagger, baseStagger - difficultyFactor * (this.isEndlessLikeMode() ? 0.18 : 0.1));
+    let stagger = Math.max(minStagger, baseStagger - difficultyFactor * 0.18);
 
-    if (this.isEndlessLikeMode()) {
-      const stage = this.getStageNumber();
-      if (stage >= 7) {
-        stagger = Math.max(0.06, stagger - 0.05);
-      } else if (stage >= 5) {
-        stagger = Math.max(0.07, stagger - 0.03);
-      }
+    const stage = this.getStageNumber();
+    if (stage >= 7) {
+      stagger = Math.max(0.06, stagger - 0.05);
+    } else if (stage >= 5) {
+      stagger = Math.max(0.07, stagger - 0.03);
     }
 
     return stagger;

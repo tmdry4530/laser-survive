@@ -2,6 +2,7 @@ import { loadStats, saveGameResult } from './db.js';
 import { GameEngine } from './gameEngine.js';
 import { fetchLeaderboard, fetchPlayerBest, submitScore } from './leaderboardApi.js';
 import { claimReward, fetchRewardAsset, isRewardEligible } from './rewardApi.js';
+import { toUserMessage } from './uiMessages.js';
 
 const PLAYER_NAME_KEY = 'laser-player-name';
 const DEFAULT_PLAYER_NAME = 'ANON';
@@ -147,7 +148,7 @@ async function submitOnlineScore(time) {
     goOnlineStatus.textContent = `ONLINE RANK #${response.rank}${response.isPersonalBest ? ' · PB' : ''}`;
     lastScoreSaved = true;
   } catch (error) {
-    goOnlineStatus.textContent = error.message.toUpperCase();
+    goOnlineStatus.textContent = toUserMessage(error.message, '점수 저장에 실패했어요');
   }
 }
 
@@ -179,10 +180,10 @@ async function tryClaimReward() {
     } else if (result.status === 'not_eligible') {
       goRewardStatus.textContent = 'REWARD NOT ELIGIBLE';
     } else {
-      goRewardStatus.textContent = String(result.status).toUpperCase();
+      goRewardStatus.textContent = toUserMessage(String(result.status), '보상 클레임에 실패했어요');
     }
   } catch (error) {
-    goRewardStatus.textContent = error.message.toUpperCase();
+    goRewardStatus.textContent = toUserMessage(error.message, '보상 클레임에 실패했어요');
   }
 }
 
@@ -201,7 +202,7 @@ async function viewReward() {
     goRewardPreview.style.display = 'flex';
     goRewardStatus.textContent = 'REWARD READY';
   } catch (error) {
-    goRewardStatus.textContent = error.message.toUpperCase();
+    goRewardStatus.textContent = toUserMessage(error.message, '보상 이미지를 불러오지 못했어요');
   }
 }
 
@@ -247,7 +248,7 @@ async function openLeaderboard(mode = activeLeaderboardMode) {
     leaderboardStatus.textContent = `${mode.toUpperCase()} TOP 20`;
     renderLeaderboardItems(items);
   } catch (error) {
-    leaderboardStatus.textContent = error.message.toUpperCase();
+    leaderboardStatus.textContent = toUserMessage(error.message, '리더보드를 불러오지 못했어요');
     leaderboardList.innerHTML = '<li class="leaderboard-empty">FAILED TO LOAD</li>';
   }
 }

@@ -394,7 +394,7 @@ test('normal lasers keep their original target during queued and warning states'
   assert.equal(engine.lasers[0].index, 4);
 });
 
-test('pursuit lasers keep tracking the player during queued and warning states', async () => {
+test('pursuit lasers track during queued, then lock for a short warning before firing', async () => {
   installBrowserMocks();
   const { GameEngine } = await import(`../src/gameEngine.js?test=${Date.now()}-${Math.random()}`);
   const canvas = {
@@ -419,7 +419,7 @@ test('pursuit lasers keep tracking the player during queued and warning states',
       index: 4,
       waveOrder: 0,
       waveSize: 4,
-      state: 'WARNING',
+      state: 'QUEUED',
       stateTimer: 0.2,
     },
   ];
@@ -427,9 +427,18 @@ test('pursuit lasers keep tracking the player during queued and warning states',
   engine.player.x = 7;
   engine.updateTrackingLasers();
   assert.equal(engine.lasers[0].index, 7);
+
+  engine.handleLasers(0.21);
+  assert.equal(engine.lasers[0].state, 'WARNING');
+  assert.equal(engine.lasers[0].lockedOn, true);
+  assert.equal(engine.lasers[0].stateTimer, 0.3);
+
+  engine.player.x = 8;
+  engine.updateTrackingLasers();
+  assert.equal(engine.lasers[0].index, 7);
 });
 
-test('pursuit lasers use a longer warning lead than normal lasers', async () => {
+test('pursuit lasers use a short lock-on warning lead before firing', async () => {
   installBrowserMocks();
   const { GameEngine } = await import(`../src/gameEngine.js?test=${Date.now()}-${Math.random()}`);
   const canvas = {
@@ -446,7 +455,8 @@ test('pursuit lasers use a longer warning lead than normal lasers', async () => 
   });
 
   assert.equal(engine.getWarningLeadForKind('NORMAL'), 0.45);
-  assert.equal(engine.getWarningLeadForKind('PURSUIT'), 1.25);
+  assert.equal(engine.getWarningLeadForKind('PURSUIT'), 0.3);
+  assert.equal(engine.getInitialLaserStateTimer('PURSUIT', 0), 1);
 });
 
 test('crazy mode increases pursuit laser count at 30s and 60s thresholds', async () => {
@@ -959,7 +969,7 @@ test('stage labels advance every 30 seconds', async () => {
   assert.equal(engine.getStageLabel(), 'STAGE 7');
 });
 
-test('initial time can start endless test sessions at stage 4', async () => {
+test('initial time can start crazy test sessions at 70 seconds', async () => {
   installBrowserMocks();
   const { GameEngine } = await import(`../src/gameEngine.js?test=${Date.now()}-${Math.random()}`);
   const canvas = {
@@ -970,15 +980,15 @@ test('initial time can start endless test sessions at stage 4', async () => {
 
   const engine = new GameEngine({
     canvas,
-    mode: 'endless',
-    initialTimeAlive: 90,
+    mode: 'crazy',
+    initialTimeAlive: 70,
     onGameOver: () => {},
     onUpdateHUD: () => {},
   });
 
-  assert.equal(engine.timeAlive, 90);
-  assert.equal(engine.getStageLabel(), 'STAGE 4');
-  assert.ok(engine.itemSpawnTimer < 7);
+  assert.equal(engine.timeAlive, 70);
+  assert.equal(engine.getStageLabel(), 'STAGE 9');
+  assert.ok(engine.itemSpawnTimer < 3);
 });
 
 test('items spawn more frequently and favor expand items at higher stages', async () => {
@@ -1183,6 +1193,30 @@ test('crazy mode increases sweep count at 30s and 60s thresholds', async () => {
   assert.equal(engine.getSweepCount(), 3);
 });
 
+test('crazy 75s-90s phase swaps normal waves for pursuit-only pressure', async () => {
+  installBrowserMocks();
+  const { GameEngine } = await import(`../src/gameEngine.js?test=${Date.now()}-${Math.random()}`);
+  const canvas = {
+    width: 0,
+    height: 0,
+    getContext: () => createCanvasContext(),
+  };
+
+  const engine = new GameEngine({
+    canvas,
+    mode: 'crazy',
+    onGameOver: () => {},
+    onUpdateHUD: () => {},
+  });
+
+  engine.timeAlive = 80;
+  assert.equal(engine.isCrazyFinalPhase(), true);
+  assert.equal(engine.getLaserCount(), 2);
+  assert.equal(engine.getLaserKind(0, 2), 'PURSUIT');
+  assert.equal(engine.getLaserKind(1, 2), 'PURSUIT');
+  assert.equal(engine.getSweepCount(), 3);
+});
+
 test('endless restores a line and reschedules quickly if no laser targets are available', async () => {
   installBrowserMocks();
   const { GameEngine } = await import(`../src/gameEngine.js?test=${Date.now()}-${Math.random()}`);
@@ -1238,6 +1272,38 @@ test('sweep lasers hit but do not delete grid lines', async () => {
   engine.player.x = 4;
   engine.lasers = [
     { kind: 'SWEEP', isVertical: true, index: 4, state: 'WARNING', stateTimer: 0 },
+  ];
+
+  engine.handleLasers(0.1);
+
+  assert.equal(engine.activeCols.length, 10);
+  assert.equal(gameOverCalls, 0);
+});
+
+test('pursuit lasers hit but do not delete grid lines', async () => {
+  installBrowserMocks();
+  const { GameEngine } = await import(`../src/gameEngine.js?test=${Date.now()}-${Math.random()}`);
+  const canvas = {
+    width: 0,
+    height: 0,
+    getContext: () => createCanvasContext(),
+  };
+
+  let gameOverCalls = 0;
+  const engine = new GameEngine({
+    canvas,
+    mode: 'crazy',
+    testMode: true,
+    onGameOver: () => {
+      gameOverCalls += 1;
+    },
+    onUpdateHUD: () => {},
+  });
+
+  engine.activeCols = engine.GRID_INDICES.slice(0, 10);
+  engine.player.x = 4;
+  engine.lasers = [
+    { kind: 'PURSUIT', isVertical: true, index: 4, waveOrder: 0, waveSize: 4, state: 'WARNING', stateTimer: 0 },
   ];
 
   engine.handleLasers(0.1);
@@ -1372,7 +1438,7 @@ test('test mode prevents death and repositions the player after a hit', async ()
   engine.player.x = 4;
   engine.player.y = 4;
   engine.lasers = [
-    { isVertical: true, index: 4, state: 'WARNING', stateTimer: 0 },
+    { kind: 'NORMAL', isVertical: true, index: 4, state: 'WARNING', stateTimer: 0 },
   ];
 
   engine.handleLasers(0.1);

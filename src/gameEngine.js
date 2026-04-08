@@ -13,7 +13,8 @@ export class GameEngine {
     this.MOVE_GRACE_WINDOW = 450;
     this.ENDLESS_GRID_FLOOR = 8;
     this.LASER_WARNING_LEAD = 0.45;
-    this.PURSUIT_WARNING_LEAD = 1.25;
+    this.PURSUIT_TRACK_LEAD = 1;
+    this.PURSUIT_WARNING_LEAD = 0.3;
     this.SWEEP_START_TIME = 120;
     this.ctx = config.canvas.getContext('2d');
     this.reqId = 0;
@@ -631,6 +632,10 @@ export class GameEngine {
   }
 
   getLaserCount() {
+    if (this.isCrazyFinalPhase()) {
+      return this.timeAlive > 60 ? 2 : 1;
+    }
+
     if (this.isEndlessLikeMode()) {
       const difficultyTime = this.getDifficultyTime();
       let count = 1;
@@ -718,6 +723,10 @@ export class GameEngine {
   }
 
   getLaserQueueDelay(laserIndex, laserCount) {
+    if (this.isCrazyFinalPhase()) {
+      return laserIndex === 0 ? 0 : 0.12 + Math.random() * 0.12;
+    }
+
     const stagger = this.getLaserStagger(laserCount);
     if (this.config.mode === 'crazy' && laserCount >= 2) {
       return laserIndex * Math.max(stagger, 0.3);
@@ -726,7 +735,27 @@ export class GameEngine {
     return laserIndex * stagger;
   }
 
+  getInitialLaserState(kind, queueDelay) {
+    if (kind === 'PURSUIT') {
+      return 'QUEUED';
+    }
+
+    return queueDelay > 0 ? 'QUEUED' : 'WARNING';
+  }
+
+  getInitialLaserStateTimer(kind, queueDelay) {
+    if (kind === 'PURSUIT') {
+      return queueDelay + this.PURSUIT_TRACK_LEAD;
+    }
+
+    return queueDelay > 0 ? queueDelay : this.getWarningLeadForKind(kind);
+  }
+
   getWarningLeadForKind(kind) {
+    if (this.isCrazyFinalPhase()) {
+      return kind === 'PURSUIT' ? this.PURSUIT_WARNING_LEAD : this.LASER_WARNING_LEAD;
+    }
+
     if (kind === 'PURSUIT') {
       return this.PURSUIT_WARNING_LEAD;
     }
@@ -742,11 +771,19 @@ export class GameEngine {
     return `STAGE ${this.getStageNumber()}`;
   }
 
+  isCrazyFinalPhase() {
+    return this.config.mode === 'crazy' && this.timeAlive >= 75 && this.timeAlive <= 90;
+  }
+
   hasActiveLaserKind(kind) {
     return this.lasers.some((laser) => laser.kind === kind);
   }
 
   getNextSweepDelay() {
+    if (this.isCrazyFinalPhase()) {
+      return 0.45 + Math.random() * 0.25;
+    }
+
     const difficultyTime = this.getDifficultyTime();
     if (difficultyTime > 210) {
       return 4.5 + Math.random() * 2.5;
@@ -760,6 +797,10 @@ export class GameEngine {
   }
 
   getSweepCount() {
+    if (this.isCrazyFinalPhase()) {
+      return this.timeAlive > 60 ? 3 : this.timeAlive > 30 ? 2 : 1;
+    }
+
     if (this.config.mode === 'crazy') {
       if (this.timeAlive > 60) return 3;
       if (this.timeAlive > 30) return 2;
@@ -777,6 +818,10 @@ export class GameEngine {
   getSweepQueueDelay(sweepIndex) {
     if (sweepIndex === 0) {
       return 0;
+    }
+
+    if (this.isCrazyFinalPhase()) {
+      return 0.08 + Math.random() * 0.08;
     }
 
     return 0.2 + Math.random() * 0.2;
@@ -905,7 +950,7 @@ export class GameEngine {
         continue;
       }
 
-      if (laser.state !== 'QUEUED' && laser.state !== 'WARNING') {
+      if ((laser.state !== 'QUEUED' && laser.state !== 'WARNING') || laser.lockedOn) {
         continue;
       }
 
@@ -930,6 +975,14 @@ export class GameEngine {
 
   getLaserKind(index, laserCount) {
     if (this.config.mode === 'crazy') {
+      if (this.isCrazyFinalPhase()) {
+        const pursuitCount = this.timeAlive > 60 ? 2 : 1;
+        if (index < pursuitCount) {
+          return 'PURSUIT';
+        }
+        return 'NORMAL';
+      }
+
       const roll = Math.random();
       let pursuitCount = 0;
 
@@ -1166,8 +1219,9 @@ export class GameEngine {
               index: target.idx,
               waveOrder: index,
               waveSize: numLasers,
-              state: queueDelay > 0 ? 'QUEUED' : 'WARNING',
-              stateTimer: queueDelay > 0 ? queueDelay : this.getWarningLeadForKind(kind),
+              lockedOn: false,
+              state: this.getInitialLaserState(kind, queueDelay),
+              stateTimer: this.getInitialLaserStateTimer(kind, queueDelay),
             });
             chosenTargets.push(target);
             spawnedLaserCount += 1;
@@ -1189,6 +1243,7 @@ export class GameEngine {
 
       if (laser.state === 'QUEUED' && laser.stateTimer <= 0) {
         laser.state = 'WARNING';
+        laser.lockedOn = true;
         laser.stateTimer = this.getWarningLeadForKind(laser.kind);
       } else if (laser.state === 'WARNING' && laser.stateTimer <= 0) {
         laser.state = 'FIRING';
@@ -1212,7 +1267,7 @@ export class GameEngine {
           }
         }
 
-        if (laser.kind !== 'SWEEP') {
+        if (laser.kind === 'NORMAL') {
           if (laser.isVertical) {
             this.activeCols = this.activeCols.filter((column) => column !== laser.index);
             for (const row of this.activeRows) {

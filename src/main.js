@@ -359,7 +359,7 @@ function startGame(mode = 'endless') {
     canvas: gameCanvas,
     mode,
     testMode: mode === 'crazy' && testModeEnabled,
-    initialTimeAlive: 0,
+    initialTimeAlive: mode === 'crazy' && testModeEnabled ? 70 : 0,
     onGameOver: async (time, won) => {
       const isNewBest = await saveGameResult(time, won, mode);
       await renderStats();

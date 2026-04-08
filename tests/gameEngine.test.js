@@ -281,6 +281,34 @@ test('tracked targeting prefers the player current line', async () => {
   assert.deepEqual(target, { v: true, idx: 6 });
 });
 
+test('tracked targeting prefers the nearest predicted lane', async () => {
+  installBrowserMocks();
+  const { GameEngine } = await import(`../src/gameEngine.js?test=${Date.now()}-${Math.random()}`);
+  const canvas = {
+    width: 0,
+    height: 0,
+    getContext: () => createCanvasContext(),
+  };
+
+  const engine = new GameEngine({
+    canvas,
+    mode: 'endless',
+    onGameOver: () => {},
+    onUpdateHUD: () => {},
+  });
+
+  engine.player.x = 5;
+  engine.player.y = 5;
+  engine.keys.add('ArrowRight');
+
+  const target = engine.chooseTrackedTarget([
+    { v: true, idx: 6 },
+    { v: true, idx: 7 },
+  ], 0, 2);
+
+  assert.deepEqual(target, { v: true, idx: 6 });
+});
+
 test('spawn logic allows targeting the player current line', async () => {
   installBrowserMocks();
   const { GameEngine } = await import(`../src/gameEngine.js?test=${Date.now()}-${Math.random()}`);
@@ -329,6 +357,131 @@ test('tracked targeting alternates preferred axis on ties across a wave', async 
 
   assert.deepEqual(engine.chooseTrackedTarget(targets, 0), { v: true, idx: 5 });
   assert.deepEqual(engine.chooseTrackedTarget(targets, 1), { v: false, idx: 5 });
+});
+
+test('normal lasers keep their original target during queued and warning states', async () => {
+  installBrowserMocks();
+  const { GameEngine } = await import(`../src/gameEngine.js?test=${Date.now()}-${Math.random()}`);
+  const canvas = {
+    width: 0,
+    height: 0,
+    getContext: () => createCanvasContext(),
+  };
+
+  const engine = new GameEngine({
+    canvas,
+    mode: 'endless',
+    onGameOver: () => {},
+    onUpdateHUD: () => {},
+  });
+
+  engine.player.x = 4;
+  engine.player.y = 4;
+  engine.lasers = [
+    {
+      kind: 'NORMAL',
+      isVertical: true,
+      index: 4,
+      waveOrder: 0,
+      waveSize: 3,
+      state: 'WARNING',
+      stateTimer: 0.2,
+    },
+  ];
+
+  engine.player.x = 7;
+  engine.updateTrackingLasers();
+  assert.equal(engine.lasers[0].index, 4);
+});
+
+test('pursuit lasers keep tracking the player during queued and warning states', async () => {
+  installBrowserMocks();
+  const { GameEngine } = await import(`../src/gameEngine.js?test=${Date.now()}-${Math.random()}`);
+  const canvas = {
+    width: 0,
+    height: 0,
+    getContext: () => createCanvasContext(),
+  };
+
+  const engine = new GameEngine({
+    canvas,
+    mode: 'crazy',
+    onGameOver: () => {},
+    onUpdateHUD: () => {},
+  });
+
+  engine.player.x = 4;
+  engine.player.y = 4;
+  engine.lasers = [
+    {
+      kind: 'PURSUIT',
+      isVertical: true,
+      index: 4,
+      waveOrder: 0,
+      waveSize: 4,
+      state: 'WARNING',
+      stateTimer: 0.2,
+    },
+  ];
+
+  engine.player.x = 7;
+  engine.updateTrackingLasers();
+  assert.equal(engine.lasers[0].index, 7);
+});
+
+test('pursuit lasers use a longer warning lead than normal lasers', async () => {
+  installBrowserMocks();
+  const { GameEngine } = await import(`../src/gameEngine.js?test=${Date.now()}-${Math.random()}`);
+  const canvas = {
+    width: 0,
+    height: 0,
+    getContext: () => createCanvasContext(),
+  };
+
+  const engine = new GameEngine({
+    canvas,
+    mode: 'crazy',
+    onGameOver: () => {},
+    onUpdateHUD: () => {},
+  });
+
+  assert.equal(engine.getWarningLeadForKind('NORMAL'), 0.45);
+  assert.equal(engine.getWarningLeadForKind('PURSUIT'), 1.25);
+});
+
+test('crazy mode increases pursuit laser count at 30s and 60s thresholds', async () => {
+  installBrowserMocks();
+  const originalRandom = Math.random;
+  Math.random = () => 0;
+
+  try {
+    const { GameEngine } = await import(`../src/gameEngine.js?test=${Date.now()}-${Math.random()}`);
+    const canvas = {
+      width: 0,
+      height: 0,
+      getContext: () => createCanvasContext(),
+    };
+
+    const engine = new GameEngine({
+      canvas,
+      mode: 'crazy',
+      onGameOver: () => {},
+      onUpdateHUD: () => {},
+    });
+
+    engine.timeAlive = 10;
+    assert.equal(engine.getLaserKind(3, 4), 'NORMAL');
+
+    engine.timeAlive = 31;
+    assert.equal(engine.getLaserKind(3, 4), 'PURSUIT');
+    assert.equal(engine.getLaserKind(2, 4), 'NORMAL');
+
+    engine.timeAlive = 61;
+    assert.equal(engine.getLaserKind(3, 4), 'PURSUIT');
+    assert.equal(engine.getLaserKind(2, 4), 'PURSUIT');
+  } finally {
+    Math.random = originalRandom;
+  }
 });
 
 test('predictive targeting leads the player when a 3+ laser wave is active', async () => {

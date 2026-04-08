@@ -31,7 +31,7 @@ on public.scores
 for insert
 to anon, authenticated
 with check (
-  player_name ~ '^[A-Za-z0-9 _-]{1,12}$'
+  player_name ~ '^[가-힣A-Za-z0-9 _-]{1,12}$'
   and mode in ('endless', 'crazy')
   and survival_time >= 0
   and survival_time <= 7200
@@ -58,7 +58,7 @@ begin
     raise exception 'Test mode scores are not accepted';
   end if;
 
-  if p_player_name !~ '^[A-Za-z0-9 _-]{1,12}$' then
+  if p_player_name !~ '^[가-힣A-Za-z0-9 _-]{1,12}$' then
     raise exception 'Invalid player name';
   end if;
 
@@ -192,7 +192,7 @@ begin
     raise exception 'Invalid mode';
   end if;
 
-  if p_player_name !~ '^[A-Za-z0-9 _-]{1,12}$' then
+  if p_player_name !~ '^[가-힣A-Za-z0-9 _-]{1,12}$' then
     raise exception 'Invalid player name';
   end if;
 

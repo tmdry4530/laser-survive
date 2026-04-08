@@ -14,7 +14,7 @@ export class GameEngine {
     this.ENDLESS_GRID_FLOOR = 8;
     this.LASER_WARNING_LEAD = 0.45;
     this.PURSUIT_TRACK_LEAD = 1;
-    this.PURSUIT_WARNING_LEAD = 0.3;
+    this.PURSUIT_WARNING_LEAD = 0.45;
     this.SWEEP_START_TIME = 120;
     this.ctx = config.canvas.getContext('2d');
     this.reqId = 0;
@@ -633,7 +633,8 @@ export class GameEngine {
 
   getLaserCount() {
     if (this.isCrazyFinalPhase()) {
-      return this.timeAlive > 60 ? 2 : 1;
+      // 75~78s: 완충 구간(4개), 이후 2개로 점진 전환
+      return this.timeAlive < 78 ? 4 : 2;
     }
 
     if (this.isEndlessLikeMode()) {
@@ -644,7 +645,7 @@ export class GameEngine {
       const fourthLaserChance = Math.min(0.18, Math.max(0, (difficultyTime - 240) / 180));
       const fifthLaserChance = Math.min(0.24, Math.max(0, (difficultyTime - 150) / 130));
       const sixthLaserChance = Math.min(0.28, Math.max(0, (difficultyTime - 210) / 140));
-      const seventhLaserChance = Math.min(0.22, Math.max(0, (difficultyTime - 270) / 160));
+      const seventhLaserChance = Math.min(0.44, Math.max(0, (difficultyTime - 270) / 160));
 
       if (Math.random() < secondLaserChance) {
         count += 1;
@@ -781,7 +782,12 @@ export class GameEngine {
 
   getNextSweepDelay() {
     if (this.isCrazyFinalPhase()) {
-      return 0.45 + Math.random() * 0.25;
+      return 1.1 + Math.random() * 0.6;
+    }
+
+    if (this.config.mode === 'crazy') {
+      // PURSUIT와 겹치는 즉사 패턴 방지: 텀을 충분히 확보
+      return 7 + Math.random() * 4;
     }
 
     const difficultyTime = this.getDifficultyTime();
@@ -797,12 +803,9 @@ export class GameEngine {
   }
 
   getSweepCount() {
-    if (this.isCrazyFinalPhase()) {
-      return this.timeAlive > 60 ? 3 : this.timeAlive > 30 ? 2 : 1;
-    }
-
     if (this.config.mode === 'crazy') {
-      if (this.timeAlive > 60) return 3;
+      if (this.isCrazyFinalPhase()) return 2;
+      if (this.timeAlive > 60) return 2;
       if (this.timeAlive > 30) return 2;
       return 1;
     }
@@ -976,18 +979,14 @@ export class GameEngine {
   getLaserKind(index, laserCount) {
     if (this.config.mode === 'crazy') {
       if (this.isCrazyFinalPhase()) {
-        const pursuitCount = this.timeAlive > 60 ? 2 : 1;
-        if (index < pursuitCount) {
-          return 'PURSUIT';
-        }
-        return 'NORMAL';
+        return 'PURSUIT';
       }
 
       const roll = Math.random();
       let pursuitCount = 0;
 
       if (this.timeAlive > 60) {
-        pursuitCount = roll < 0.5 ? 2 : 0;
+        pursuitCount = roll < 0.38 ? 2 : 0;
       } else if (this.timeAlive > 30) {
         pursuitCount = roll < 0.28 ? 1 : 0;
       }
@@ -1098,15 +1097,11 @@ export class GameEngine {
     const preferredAxis = sweepIndex % 2 === 0;
 
     for (const col of this.activeCols) {
-      if (!this.lasers.some((laser) => laser.isVertical && laser.index === col)) {
-        targets.push({ v: true, idx: col });
-      }
+      targets.push({ v: true, idx: col });
     }
 
     for (const row of this.activeRows) {
-      if (!this.lasers.some((laser) => !laser.isVertical && laser.index === row)) {
-        targets.push({ v: false, idx: row });
-      }
+      targets.push({ v: false, idx: row });
     }
 
     const filteredTargets = chosenTargets.length === 0
@@ -1163,6 +1158,11 @@ export class GameEngine {
       this.sweepTimer = this.getNextSweepDelay();
     }
 
+    // finalPhase 진입 시 긴 타이머가 남아있으면 즉시 짧게 재설정
+    if (this.isCrazyFinalPhase() && this.sweepTimer > 1.7) {
+      this.sweepTimer = 0.3 + Math.random() * 0.4;
+    }
+
     if (this.hasActiveLaserKind('SWEEP')) {
       return;
     }
@@ -1181,7 +1181,8 @@ export class GameEngine {
       if (this.laserTimer <= 0) {
         this.round += 1;
         if (this.config.mode === 'crazy') {
-          this.laserInterval = 0.5 + Math.random();
+          const minBase = this.timeAlive > 60 ? 0.68 : this.timeAlive > 30 ? 0.62 : 0.70;
+          this.laserInterval = minBase + Math.random() * 0.45;
         } else {
           const minInterval = this.getMinLaserInterval();
           const scalingFactor = this.getLaserScalingFactor();
@@ -1190,6 +1191,9 @@ export class GameEngine {
         this.laserTimer = this.laserInterval;
 
         const numLasers = this.getLaserCount();
+        const crazyWaveType = (this.config.mode === 'crazy' && !this.isCrazyFinalPhase())
+          ? this.getCrazyWaveType(numLasers)
+          : null;
 
         const chosenTargets = [];
         let spawnedLaserCount = 0;
@@ -1210,7 +1214,9 @@ export class GameEngine {
 
           const safeTargets = this.getMovementSafeTargets(validTargets);
           if (safeTargets.length > 0) {
-            const target = this.chooseTrackedTarget(safeTargets, index, numLasers);
+            const target = crazyWaveType
+              ? this.chooseCrazyTarget(safeTargets, index, numLasers, crazyWaveType, chosenTargets)
+              : this.chooseTrackedTarget(safeTargets, index, numLasers);
             const queueDelay = this.getLaserQueueDelay(index, numLasers);
             const kind = this.getLaserKind(index, numLasers);
             this.lasers.push({
@@ -1343,7 +1349,11 @@ export class GameEngine {
         );
 
         if (warningLaser) {
-          if (Math.floor(this.timeAlive * 15) % 2 === 0) {
+          // PURSUIT는 깜빡이지 않고 단색 섬광 — 암살 느낌 (경고 없는 순간 발사)
+          const showWarning = warningLaser.kind === 'PURSUIT'
+            ? true
+            : Math.floor(this.timeAlive * 15) % 2 === 0;
+          if (showWarning) {
             const warningColor = warningLaser.kind === 'SWEEP'
               ? '255, 215, 0'
               : warningLaser.kind === 'PURSUIT'
@@ -1464,7 +1474,7 @@ export class GameEngine {
       ? { shadow: 'rgba(255, 215, 0, 0.65)', mid: '#ffd700' }
       : kind === 'PURSUIT'
         ? { shadow: 'rgba(180, 90, 255, 0.7)', mid: '#b45aff' }
-      : { shadow: 'rgba(255, 34, 68, 0.6)', mid: '#ff4466' };
+        : { shadow: 'rgba(255, 34, 68, 0.6)', mid: '#ff4466' };
     this.ctx.shadowColor = beamPalette.shadow;
     this.ctx.shadowBlur = 20 * strength;
     const beamWidth = Math.max(6, Math.round(this.CELL_SIZE * 0.18));

@@ -1006,6 +1006,30 @@ test('wave 15+ can escalate sweep lasers to two with staggered cross-axis target
   }
 });
 
+test('crazy mode increases sweep count at 30s and 60s thresholds', async () => {
+  installBrowserMocks();
+  const { GameEngine } = await import(`../src/gameEngine.js?test=${Date.now()}-${Math.random()}`);
+  const canvas = {
+    width: 0,
+    height: 0,
+    getContext: () => createCanvasContext(),
+  };
+
+  const engine = new GameEngine({
+    canvas,
+    mode: 'crazy',
+    onGameOver: () => {},
+    onUpdateHUD: () => {},
+  });
+
+  engine.timeAlive = 10;
+  assert.equal(engine.getSweepCount(), 1);
+  engine.timeAlive = 31;
+  assert.equal(engine.getSweepCount(), 2);
+  engine.timeAlive = 61;
+  assert.equal(engine.getSweepCount(), 3);
+});
+
 test('endless restores a line and reschedules quickly if no laser targets are available', async () => {
   installBrowserMocks();
   const { GameEngine } = await import(`../src/gameEngine.js?test=${Date.now()}-${Math.random()}`);

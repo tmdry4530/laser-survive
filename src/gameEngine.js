@@ -39,6 +39,7 @@ export class GameEngine {
     this.testMode = Boolean(config.testMode);
     this.config = config;
     this.itemSpawnTimer = this.getNextItemSpawnDelay();
+    this.autoRestoreTimer = this.getAutoRestoreDelay();
 
     config.canvas.width = this.CANVAS_SIZE;
     config.canvas.height = this.CANVAS_SIZE;
@@ -145,6 +146,12 @@ export class GameEngine {
   }
 
   update(dt) {
+    if (this.activeRows.length === 0 || this.activeCols.length === 0) {
+      this.config.onGameOver(this.timeAlive, false);
+      this.stop();
+      return;
+    }
+
     this.timeAlive += dt;
 
     if (this.screenShake > 0) {
@@ -158,6 +165,7 @@ export class GameEngine {
     this.updateGridPositions(dt);
     this.handleMovement();
     this.updateItems(dt);
+    this.updateAutoRestore(dt);
     this.updateSweepLasers(dt);
     this.handleLasers(dt);
     this.updateParticles(dt);
@@ -244,6 +252,28 @@ export class GameEngine {
 
   getMissingCols() {
     return this.GRID_INDICES.filter((col) => !this.activeCols.includes(col));
+  }
+
+  getAutoRestoreDelay() {
+    if (!this.isEndlessLikeMode()) {
+      return Number.POSITIVE_INFINITY;
+    }
+
+    if (this.config.mode === 'crazy') {
+      return Math.max(1.2, 5.6 - this.round * 0.1);
+    }
+
+    return Math.max(3, 9 - this.round * 0.08);
+  }
+
+  getAutoRestoreCount() {
+    if (this.config.mode === 'crazy') {
+      if (this.round >= 24) return 3;
+      if (this.round >= 12) return 2;
+      return 1;
+    }
+
+    return 1;
   }
 
   getNextItemSpawnDelay() {
@@ -364,6 +394,23 @@ export class GameEngine {
     this.itemSpawnTimer -= dt;
     if (this.itemSpawnTimer <= 0) {
       this.spawnItem();
+    }
+  }
+
+  updateAutoRestore(dt) {
+    if (!this.isEndlessLikeMode()) {
+      return;
+    }
+
+    if (this.getMissingRows().length === 0 && this.getMissingCols().length === 0) {
+      this.autoRestoreTimer = this.getAutoRestoreDelay();
+      return;
+    }
+
+    this.autoRestoreTimer -= dt;
+    if (this.autoRestoreTimer <= 0) {
+      this.restoreMissingLines(this.getAutoRestoreCount());
+      this.autoRestoreTimer = this.getAutoRestoreDelay();
     }
   }
 
@@ -519,6 +566,8 @@ export class GameEngine {
       restored += 1;
       this.validateItemPlacement();
     }
+
+    this.autoRestoreTimer = this.getAutoRestoreDelay();
 
     return restored;
   }
@@ -691,6 +740,12 @@ export class GameEngine {
   }
 
   getSweepCount() {
+    if (this.config.mode === 'crazy') {
+      if (this.timeAlive > 60) return 3;
+      if (this.timeAlive > 30) return 2;
+      return 1;
+    }
+
     if (this.round < 15) {
       return 1;
     }
@@ -931,13 +986,16 @@ export class GameEngine {
       ? targets
       : targets.filter((target) => target.v !== chosenTargets[chosenTargets.length - 1].v);
     const candidateTargets = filteredTargets.length > 0 ? filteredTargets : targets;
+    const predictedPlayer = this.config.mode === 'crazy'
+      ? this.getPredictedPlayerPosition(Math.max(1, sweepIndex), Math.max(3, chosenTargets.length + 1))
+      : this.player;
 
     return [...candidateTargets].sort((left, right) => {
       if (left.v !== right.v) {
         return left.v === preferredAxis ? -1 : 1;
       }
 
-      return this.getTargetDistance(left) - this.getTargetDistance(right);
+      return this.getTargetDistance(left, predictedPlayer) - this.getTargetDistance(right, predictedPlayer);
     })[0] ?? null;
   }
 

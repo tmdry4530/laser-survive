@@ -284,18 +284,18 @@ where mode = 'endless'
 
 insert into public.rewards (mode, name, description, storage_path, required_time)
 values
-    ('endless', 'Endless Survivor Reward 01', 'Survive 180 seconds in Endless mode.', 'endless/reward-01.png', 180),
-    ('endless', 'Endless Survivor Reward 02', 'Survive 180 seconds in Endless mode.', 'endless/reward-02.png', 180),
-    ('endless', 'Endless Survivor Reward 03', 'Survive 180 seconds in Endless mode.', 'endless/reward-03.png', 180),
-    ('endless', 'Endless Survivor Reward 04', 'Survive 180 seconds in Endless mode.', 'endless/reward-04.png', 180),
-    ('endless', 'Endless Survivor Reward 05', 'Survive 180 seconds in Endless mode.', 'endless/reward-05.png', 180),
-    ('endless', 'Endless Survivor Reward 06', 'Survive 180 seconds in Endless mode.', 'endless/reward-06.png', 180),
-    ('endless', 'Endless Survivor Reward 07', 'Survive 180 seconds in Endless mode.', 'endless/reward-07.png', 180),
-    ('endless', 'Endless Survivor Reward 08', 'Survive 180 seconds in Endless mode.', 'endless/reward-08.png', 180),
-    ('endless', 'Endless Survivor Reward 09', 'Survive 180 seconds in Endless mode.', 'endless/reward-09.png', 180),
-    ('endless', 'Endless Survivor Reward 10', 'Survive 180 seconds in Endless mode.', 'endless/reward-10.png', 180),
-    ('endless', 'Endless Survivor Reward 11', 'Survive 180 seconds in Endless mode.', 'endless/reward-11.png', 180),
-    ('endless', 'Endless Survivor Reward 12', 'Survive 180 seconds in Endless mode.', 'endless/reward-12.png', 180),
+    ('endless', 'Endless Survivor Reward 01', 'Survive 120 seconds in Endless mode.', 'endless/reward-01.png', 120),
+    ('endless', 'Endless Survivor Reward 02', 'Survive 120 seconds in Endless mode.', 'endless/reward-02.png', 120),
+    ('endless', 'Endless Survivor Reward 03', 'Survive 120 seconds in Endless mode.', 'endless/reward-03.png', 120),
+    ('endless', 'Endless Survivor Reward 04', 'Survive 120 seconds in Endless mode.', 'endless/reward-04.png', 120),
+    ('endless', 'Endless Survivor Reward 05', 'Survive 120 seconds in Endless mode.', 'endless/reward-05.png', 120),
+    ('endless', 'Endless Survivor Reward 06', 'Survive 120 seconds in Endless mode.', 'endless/reward-06.png', 120),
+    ('endless', 'Endless Survivor Reward 07', 'Survive 120 seconds in Endless mode.', 'endless/reward-07.png', 120),
+    ('endless', 'Endless Survivor Reward 08', 'Survive 120 seconds in Endless mode.', 'endless/reward-08.png', 120),
+    ('endless', 'Endless Survivor Reward 09', 'Survive 120 seconds in Endless mode.', 'endless/reward-09.png', 120),
+    ('endless', 'Endless Survivor Reward 10', 'Survive 120 seconds in Endless mode.', 'endless/reward-10.png', 120),
+    ('endless', 'Endless Survivor Reward 11', 'Survive 120 seconds in Endless mode.', 'endless/reward-11.png', 120),
+    ('endless', 'Endless Survivor Reward 12', 'Survive 120 seconds in Endless mode.', 'endless/reward-12.png', 120),
     ('crazy', 'Crazy Survivor Reward', 'Survive 90 seconds in Crazy mode.', 'crazy/reward.png', 90)
 on conflict (storage_path) do update
 set

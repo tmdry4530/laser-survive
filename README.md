@@ -2,13 +2,13 @@
 
 > HTML5 Canvas 기반 아케이드 서바이벌 게임
 
-**Live Demo** → [death.fun/laser](https://death.fun/laser)
+**Live Demo** → [laser-survive.vercel.app](https://laser-survive.vercel.app/)
 
-| 항목 | 내용 |
-|------|------|
-| 개발 기간 | 2026.04 |
-| 참여 인원 | 1인 (개인 프로젝트) |
-| 플랫폼 | 웹 브라우저 (데스크톱/모바일) |
+| 항목      | 내용                   |
+| --------- | ---------------------- |
+| 개발 기간 | 2026.04                |
+| 참여 인원 | 1인 (개인 프로젝트)    |
+| 플랫폼    | 웹 브라우저 (데스크톱) |
 
 ---
 
@@ -27,13 +27,13 @@ Laser Survival은 14x14 그리드 위에서 레이저를 피해 최대한 오래
 
 ## 기술 스택
 
-| 구분 | 기술 |
-|------|------|
-| Frontend | Vanilla JavaScript, HTML5, CSS3 |
-| Rendering | Canvas API, requestAnimationFrame |
-| Local Storage | IndexedDB |
-| Backend | Node.js, Express, Supabase |
-| Deploy | Vercel + Supabase |
+| 구분          | 기술                              |
+| ------------- | --------------------------------- |
+| Frontend      | Vanilla JavaScript, HTML5, CSS3   |
+| Rendering     | Canvas API, requestAnimationFrame |
+| Local Storage | IndexedDB                         |
+| Backend       | Node.js, Express, Supabase        |
+| Deploy        | Vercel + Supabase                 |
 
 ---
 
@@ -51,13 +51,14 @@ this.loop = (time) => {
   const dt = (time - this.lastTime) / 1000;
   this.lastTime = time;
 
-  if (dt > 0.1) {                              // 탭 전환 등 긴 공백은 스킵
+  if (dt > 0.1) {
+    // 탭 전환 등 긴 공백은 스킵
     this.reqId = requestAnimationFrame(this.loop);
     return;
   }
 
-  this.update(dt);                              // 상태 갱신
-  this.draw();                                  // Canvas 렌더링
+  this.update(dt); // 상태 갱신
+  this.draw(); // Canvas 렌더링
 
   if (this.running) {
     this.reqId = requestAnimationFrame(this.loop);
@@ -96,12 +97,12 @@ getLaserScalingFactor() {
 }
 ```
 
-| 난이도 구간 | 레이저 수 | 최소 발사 간격 | 특수 패턴 |
-|------------|----------|--------------|----------|
-| Stage 1-2 | 1-2개 | 0.94s | - |
-| Stage 3-4 | 3-4개 | 0.74s | Pursuit 등장 |
-| Stage 5-6 | 4-6개 | 0.68s | Sweep 등장 |
-| Stage 7+  | 5-7개 | 0.60s | 복합 패턴 |
+| 난이도 구간 | 레이저 수 | 최소 발사 간격 | 특수 패턴    |
+| ----------- | --------- | -------------- | ------------ |
+| Stage 1-2   | 1-2개     | 0.94s          | -            |
+| Stage 3-4   | 3-4개     | 0.74s          | Pursuit 등장 |
+| Stage 5-6   | 4-6개     | 0.68s          | Sweep 등장   |
+| Stage 7+    | 5-7개     | 0.60s          | 복합 패턴    |
 
 ### 3. 레이저 패턴 — Normal / Pursuit / Sweep
 
@@ -160,10 +161,10 @@ updateGridPositions(dt) {
 
 두 종류의 아이템이 그리드 위에 출현합니다.
 
-| 아이템 | 효과 |
-|--------|------|
+| 아이템         | 효과                                 |
+| -------------- | ------------------------------------ |
 | EXPAND (GRID+) | 제거된 줄 복구 (라운드에 따라 3-7줄) |
-| COOLANT | 레이저 발사 속도 일시 감속 (8초) |
+| COOLANT        | 레이저 발사 속도 일시 감속 (8초)     |
 
 그리드가 축소된 상태일수록 EXPAND 아이템의 출현 확률이 올라갑니다.
 
@@ -181,12 +182,12 @@ getExpandItemWeight() {
 
 Canvas 위에 직접 그리는 경량 파티클 시스템으로 시각적 피드백을 제공합니다.
 
-| 타입 | 발생 시점 | 색상 |
-|------|----------|------|
-| TRAIL | 플레이어 이동 | cyan |
-| DEBRIS | 줄 제거/복구 | dark |
-| EXPLOSION | 레이저 피격 | cyan |
-| VICTORY | 아이템 획득 | gold |
+| 타입      | 발생 시점     | 색상 |
+| --------- | ------------- | ---- |
+| TRAIL     | 플레이어 이동 | cyan |
+| DEBRIS    | 줄 제거/복구  | dark |
+| EXPLOSION | 레이저 피격   | cyan |
+| VICTORY   | 아이템 획득   | gold |
 
 ### 7. Endless / Crazy 모드 분리
 
@@ -208,18 +209,18 @@ isCrazyFinalPhase() {
 
 - 최고 기록, 플레이 횟수, 최근 기록을 **IndexedDB**에 로컬 저장
 - Supabase 연결 시 모드별 온라인 랭킹 제출/조회
-- 조건 달성 시 모드별 보상 클레임 (Endless 180초 / Crazy 90초 이상)
+- 조건 달성 시 모드별 보상 클레임 (Endless 120초 / Crazy 90초 이상)
 
 ---
 
 ## 게임 규칙
 
-| 항목 | 설명 |
-|------|------|
-| 이동 | 방향키 / WASD |
-| 목표 | 가능한 오래 생존 |
-| 패배 조건 | 레이저 피격 또는 생존 불가 |
-| 테스트 모드 | `?test=1` 쿼리로 시작 |
+| 항목        | 설명                       |
+| ----------- | -------------------------- |
+| 이동        | 방향키 / WASD              |
+| 목표        | 가능한 오래 생존           |
+| 패배 조건   | 레이저 피격 또는 생존 불가 |
+| 테스트 모드 | `?test=1` 쿼리로 시작      |
 
 ---
 

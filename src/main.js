@@ -1,84 +1,97 @@
-import { loadStats, saveGameResult } from './db.js';
-import { GameEngine } from './gameEngine.js';
-import { fetchLeaderboard, fetchPlayerBest, submitScore } from './leaderboardApi.js';
-import { claimReward, fetchRewardAsset, isRewardEligible } from './rewardApi.js';
-import { toUserMessage } from './uiMessages.js';
+import { loadStats, saveGameResult } from "./db.js";
+import { GameEngine } from "./gameEngine.js";
+import {
+  fetchLeaderboard,
+  fetchPlayerBest,
+  submitScore,
+} from "./leaderboardApi.js";
+import {
+  claimReward,
+  fetchRewardAsset,
+  isRewardEligible,
+} from "./rewardApi.js";
+import { toUserMessage } from "./uiMessages.js";
 
-const PLAYER_NAME_KEY = 'laser-player-name';
-const DEFAULT_PLAYER_NAME = 'ANON';
+const PLAYER_NAME_KEY = "laser-player-name";
+const DEFAULT_PLAYER_NAME = "ANON";
 
-const screenTitle = document.getElementById('screen-title');
-const screenGame = document.getElementById('screen-game');
-const screenGameOver = document.getElementById('screen-gameover');
-const screenLeaderboard = document.getElementById('screen-leaderboard');
-const rootElement = document.getElementById('root');
-const hudOverlay = document.getElementById('hud-overlay');
+const screenTitle = document.getElementById("screen-title");
+const screenGame = document.getElementById("screen-game");
+const screenGameOver = document.getElementById("screen-gameover");
+const screenLeaderboard = document.getElementById("screen-leaderboard");
+const rootElement = document.getElementById("root");
+const hudOverlay = document.getElementById("hud-overlay");
 
-const titleBestEndless = document.getElementById('title-best-endless');
-const titleBestCrazy = document.getElementById('title-best-crazy');
-const titleGames = document.getElementById('title-games');
-const titleTestMode = document.getElementById('title-testmode');
+const titleBestEndless = document.getElementById("title-best-endless");
+const titleBestCrazy = document.getElementById("title-best-crazy");
+const titleGames = document.getElementById("title-games");
+const titleTestMode = document.getElementById("title-testmode");
 
-const hudTimeVal = document.getElementById('hud-time-val');
-const hudBestVal = document.getElementById('hud-best-val');
-const gameModeLabel = document.getElementById('game-mode-label');
-const gameRound = document.getElementById('game-round');
-const gameLaser = document.getElementById('game-laser');
-const gameItem = document.getElementById('game-item');
+const hudTimeVal = document.getElementById("hud-time-val");
+const hudBestVal = document.getElementById("hud-best-val");
+const gameModeLabel = document.getElementById("game-mode-label");
+const gameRound = document.getElementById("game-round");
+const gameLaser = document.getElementById("game-laser");
+const gameItem = document.getElementById("game-item");
 
-const goTime = document.getElementById('go-time');
-const goNewBest = document.getElementById('go-newbest');
-const goOnlineStatus = document.getElementById('go-online-status');
-const goPlayerNameInput = document.getElementById('go-player-name');
-const goRewardStatus = document.getElementById('go-reward-status');
-const goRewardPreview = document.getElementById('go-reward-preview');
-const goRewardImage = document.getElementById('go-reward-image');
-const goRewardName = document.getElementById('go-reward-name');
-const goRewardDescription = document.getElementById('go-reward-description');
-const gameCanvas = document.getElementById('game-canvas');
+const goTime = document.getElementById("go-time");
+const goNewBest = document.getElementById("go-newbest");
+const goOnlineStatus = document.getElementById("go-online-status");
+const goPlayerNameInput = document.getElementById("go-player-name");
+const goRewardStatus = document.getElementById("go-reward-status");
+const goRewardPreview = document.getElementById("go-reward-preview");
+const goRewardImage = document.getElementById("go-reward-image");
+const goRewardName = document.getElementById("go-reward-name");
+const goRewardDescription = document.getElementById("go-reward-description");
+const gameCanvas = document.getElementById("game-canvas");
 
-const startEndlessButton = document.getElementById('btn-start-endless');
-const startCrazyButton = document.getElementById('btn-start-crazy');
-const openLeaderboardButton = document.getElementById('btn-open-leaderboard');
-const retryButton = document.getElementById('btn-retry');
-const saveScoreButton = document.getElementById('btn-save-score');
-const claimRewardButton = document.getElementById('btn-claim-reward');
-const viewRewardButton = document.getElementById('btn-view-reward');
-const homeButton = document.getElementById('btn-home');
-const leaderboardBackButton = document.getElementById('btn-leaderboard-back');
-const leaderboardEndlessTab = document.getElementById('leaderboard-tab-endless');
-const leaderboardCrazyTab = document.getElementById('leaderboard-tab-crazy');
-const leaderboardList = document.getElementById('leaderboard-list');
-const leaderboardStatus = document.getElementById('leaderboard-status');
-const leaderboardBest = document.getElementById('leaderboard-best');
+const startEndlessButton = document.getElementById("btn-start-endless");
+const startCrazyButton = document.getElementById("btn-start-crazy");
+const openLeaderboardButton = document.getElementById("btn-open-leaderboard");
+const retryButton = document.getElementById("btn-retry");
+const saveScoreButton = document.getElementById("btn-save-score");
+const claimRewardButton = document.getElementById("btn-claim-reward");
+const viewRewardButton = document.getElementById("btn-view-reward");
+const homeButton = document.getElementById("btn-home");
+const leaderboardBackButton = document.getElementById("btn-leaderboard-back");
+const leaderboardEndlessTab = document.getElementById(
+  "leaderboard-tab-endless",
+);
+const leaderboardCrazyTab = document.getElementById("leaderboard-tab-crazy");
+const leaderboardList = document.getElementById("leaderboard-list");
+const leaderboardStatus = document.getElementById("leaderboard-status");
+const leaderboardBest = document.getElementById("leaderboard-best");
 
 let engine = null;
-let currentScreen = 'TITLE';
-let currentMode = 'endless';
-let activeLeaderboardMode = 'endless';
+let currentScreen = "TITLE";
+let currentMode = "endless";
+let activeLeaderboardMode = "endless";
 let bestScoreEndless = 0;
 let bestScoreCrazy = 0;
-let testModeEnabled = new URLSearchParams(window.location.search).get('test') === '1';
+let testModeEnabled =
+  new URLSearchParams(window.location.search).get("test") === "1";
 let lastFinishedTime = null;
 let lastScoreSaved = false;
 let lastRewardClaim = null;
 
 function switchScreen(screen) {
   currentScreen = screen;
-  screenTitle.style.display = screen === 'TITLE' ? 'flex' : 'none';
-  screenGame.style.display = screen === 'GAME' ? 'flex' : 'none';
-  screenGameOver.style.display = screen === 'GAMEOVER' ? 'flex' : 'none';
-  screenLeaderboard.style.display = screen === 'LEADERBOARD' ? 'flex' : 'none';
-  hudOverlay.style.display = screen === 'GAME' ? 'flex' : 'none';
+  screenTitle.style.display = screen === "TITLE" ? "flex" : "none";
+  screenGame.style.display = screen === "GAME" ? "flex" : "none";
+  screenGameOver.style.display = screen === "GAMEOVER" ? "flex" : "none";
+  screenLeaderboard.style.display = screen === "LEADERBOARD" ? "flex" : "none";
+  hudOverlay.style.display = screen === "GAME" ? "flex" : "none";
 }
 
 function normalizePlayerName(value) {
-  const trimmed = `${value ?? ''}`.trim().replace(/\s+/g, ' ');
+  const trimmed = `${value ?? ""}`.trim().replace(/\s+/g, " ");
   return (trimmed || DEFAULT_PLAYER_NAME).slice(0, 12);
 }
 
 function getPlayerName() {
-  return normalizePlayerName(goPlayerNameInput.value || window.localStorage.getItem(PLAYER_NAME_KEY));
+  return normalizePlayerName(
+    goPlayerNameInput.value || window.localStorage.getItem(PLAYER_NAME_KEY),
+  );
 }
 
 function savePlayerName() {
@@ -97,20 +110,20 @@ async function renderStats() {
 }
 
 function renderTestModeState() {
-  titleTestMode.style.display = testModeEnabled ? 'block' : 'none';
-  titleTestMode.textContent = testModeEnabled ? '[ CRAZY TEST MODE: ON ]' : '';
+  titleTestMode.style.display = testModeEnabled ? "block" : "none";
+  titleTestMode.textContent = testModeEnabled ? "[ CRAZY TEST MODE: ON ]" : "";
 }
 
-function getHudItemText(itemStatus = '') {
+function getHudItemText(itemStatus = "") {
   return itemStatus;
 }
 
 function getModeBannerText() {
-  if (currentMode === 'crazy') {
-    return 'CRAZY MODE · NO MERCY';
+  if (currentMode === "crazy") {
+    return "CRAZY MODE · NO MERCY";
   }
 
-  return 'ENDLESS MODE';
+  return "ENDLESS MODE";
 }
 
 function applyModeTheme() {
@@ -120,20 +133,20 @@ function applyModeTheme() {
 
 function resetRewardPanel() {
   lastRewardClaim = null;
-  goRewardStatus.textContent = '';
-  goRewardPreview.style.display = 'none';
-  goRewardImage.removeAttribute('src');
-  goRewardName.textContent = '';
-  goRewardDescription.textContent = '';
+  goRewardStatus.textContent = "";
+  goRewardPreview.style.display = "none";
+  goRewardImage.removeAttribute("src");
+  goRewardName.textContent = "";
+  goRewardDescription.textContent = "";
 }
 
 async function submitOnlineScore(time) {
   if (lastScoreSaved) {
-    goOnlineStatus.textContent = 'SCORE ALREADY SAVED';
+    goOnlineStatus.textContent = "SCORE ALREADY SAVED";
     return;
   }
 
-  goOnlineStatus.textContent = 'Submitting score...';
+  goOnlineStatus.textContent = "Submitting score...";
   savePlayerName();
 
   try {
@@ -142,13 +155,16 @@ async function submitOnlineScore(time) {
       mode: currentMode,
       survivalTime: time,
       isTestMode: false,
-      clientVersion: '1.0.0',
+      clientVersion: "1.0.0",
     });
 
-    goOnlineStatus.textContent = `ONLINE RANK #${response.rank}${response.isPersonalBest ? ' · PB' : ''}`;
+    goOnlineStatus.textContent = `ONLINE RANK #${response.rank}${response.isPersonalBest ? " · PB" : ""}`;
     lastScoreSaved = true;
   } catch (error) {
-    goOnlineStatus.textContent = toUserMessage(error.message, '점수 저장에 실패했어요');
+    goOnlineStatus.textContent = toUserMessage(
+      error.message,
+      "점수 저장에 실패했어요",
+    );
   }
 }
 
@@ -158,11 +174,11 @@ async function tryClaimReward() {
   }
 
   if (!isRewardEligible(currentMode, lastFinishedTime)) {
-    goRewardStatus.textContent = 'REWARD NOT ELIGIBLE';
+    goRewardStatus.textContent = "REWARD NOT ELIGIBLE";
     return;
   }
 
-  goRewardStatus.textContent = 'CLAIMING REWARD...';
+  goRewardStatus.textContent = "CLAIMING REWARD...";
   savePlayerName();
 
   try {
@@ -173,48 +189,62 @@ async function tryClaimReward() {
     });
     lastRewardClaim = result;
 
-    if (result.status === 'claimed') {
-      goRewardStatus.textContent = 'REWARD CLAIMED';
-    } else if (result.status === 'already_claimed') {
-      goRewardStatus.textContent = 'ALREADY CLAIMED';
-    } else if (result.status === 'not_eligible') {
-      goRewardStatus.textContent = 'REWARD NOT ELIGIBLE';
+    if (result.status === "claimed") {
+      goRewardStatus.textContent = "REWARD CLAIMED";
+    } else if (result.status === "already_claimed") {
+      goRewardStatus.textContent = "ALREADY CLAIMED";
+    } else if (result.status === "not_eligible") {
+      goRewardStatus.textContent = "REWARD NOT ELIGIBLE";
     } else {
-      goRewardStatus.textContent = toUserMessage(String(result.status), '보상 클레임에 실패했어요');
+      goRewardStatus.textContent = toUserMessage(
+        String(result.status),
+        "보상 클레임에 실패했어요",
+      );
     }
   } catch (error) {
-    goRewardStatus.textContent = toUserMessage(error.message, '보상 클레임에 실패했어요');
+    goRewardStatus.textContent = toUserMessage(
+      error.message,
+      "보상 클레임에 실패했어요",
+    );
   }
 }
 
 async function viewReward() {
-  if (!lastRewardClaim && !isRewardEligible(currentMode, lastFinishedTime ?? 0)) {
-    goRewardStatus.textContent = 'CLAIM REWARD FIRST';
+  if (
+    !lastRewardClaim &&
+    !isRewardEligible(currentMode, lastFinishedTime ?? 0)
+  ) {
+    goRewardStatus.textContent = "CLAIM REWARD FIRST";
     return;
   }
 
-  goRewardStatus.textContent = 'LOADING REWARD...';
+  goRewardStatus.textContent = "LOADING REWARD...";
   try {
     const asset = await fetchRewardAsset({ mode: currentMode });
     goRewardName.textContent = asset.name;
     goRewardDescription.textContent = asset.description;
     goRewardImage.src = asset.signedUrl;
-    goRewardPreview.style.display = 'flex';
-    goRewardStatus.textContent = 'REWARD READY';
+    goRewardPreview.style.display = "flex";
+    goRewardStatus.textContent = "REWARD READY";
   } catch (error) {
-    goRewardStatus.textContent = toUserMessage(error.message, '보상 이미지를 불러오지 못했어요');
+    goRewardStatus.textContent = toUserMessage(
+      error.message,
+      "보상 이미지를 불러오지 못했어요",
+    );
   }
 }
 
 function renderLeaderboardItems(items) {
   if (items.length === 0) {
-    leaderboardList.innerHTML = '<li class="leaderboard-empty">NO SCORES YET</li>';
+    leaderboardList.innerHTML =
+      '<li class="leaderboard-empty">NO SCORES YET</li>';
     return;
   }
 
-  leaderboardList.innerHTML = items.map((item) => {
-    const date = new Date(item.createdAt).toLocaleDateString('ko-KR');
-    return `
+  leaderboardList.innerHTML = items
+    .map((item) => {
+      const date = new Date(item.createdAt).toLocaleDateString("ko-KR");
+      return `
       <li class="leaderboard-row">
         <span class="leaderboard-rank">#${item.rank}</span>
         <span class="leaderboard-name">${item.playerName}</span>
@@ -222,7 +252,8 @@ function renderLeaderboardItems(items) {
         <span class="leaderboard-date">${date}</span>
       </li>
     `;
-  }).join('');
+    })
+    .join("");
 }
 
 async function renderPlayerBest() {
@@ -230,17 +261,17 @@ async function renderPlayerBest() {
     const best = await fetchPlayerBest(getPlayerName());
     leaderboardBest.textContent = `YOUR BEST · ENDLESS ${best.endless.toFixed(1)}s / CRAZY ${best.crazy.toFixed(1)}s`;
   } catch {
-    leaderboardBest.textContent = 'YOUR BEST · UNAVAILABLE';
+    leaderboardBest.textContent = "YOUR BEST · UNAVAILABLE";
   }
 }
 
 async function openLeaderboard(mode = activeLeaderboardMode) {
   activeLeaderboardMode = mode;
-  switchScreen('LEADERBOARD');
-  leaderboardEndlessTab.classList.toggle('active', mode === 'endless');
-  leaderboardCrazyTab.classList.toggle('active', mode === 'crazy');
-  leaderboardStatus.textContent = 'LOADING...';
-  leaderboardList.innerHTML = '';
+  switchScreen("LEADERBOARD");
+  leaderboardEndlessTab.classList.toggle("active", mode === "endless");
+  leaderboardCrazyTab.classList.toggle("active", mode === "crazy");
+  leaderboardStatus.textContent = "LOADING...";
+  leaderboardList.innerHTML = "";
   await renderPlayerBest();
 
   try {
@@ -248,118 +279,135 @@ async function openLeaderboard(mode = activeLeaderboardMode) {
     leaderboardStatus.textContent = `${mode.toUpperCase()} TOP 20`;
     renderLeaderboardItems(items);
   } catch (error) {
-    leaderboardStatus.textContent = toUserMessage(error.message, '리더보드를 불러오지 못했어요');
-    leaderboardList.innerHTML = '<li class="leaderboard-empty">FAILED TO LOAD</li>';
+    leaderboardStatus.textContent = toUserMessage(
+      error.message,
+      "리더보드를 불러오지 못했어요",
+    );
+    leaderboardList.innerHTML =
+      '<li class="leaderboard-empty">FAILED TO LOAD</li>';
   }
 }
 
 function bindControls() {
-  goPlayerNameInput.value = normalizePlayerName(window.localStorage.getItem(PLAYER_NAME_KEY));
-  goPlayerNameInput.addEventListener('change', savePlayerName);
-  goPlayerNameInput.addEventListener('blur', savePlayerName);
+  goPlayerNameInput.value = normalizePlayerName(
+    window.localStorage.getItem(PLAYER_NAME_KEY),
+  );
+  goPlayerNameInput.addEventListener("change", savePlayerName);
+  goPlayerNameInput.addEventListener("blur", savePlayerName);
 
-  startEndlessButton.addEventListener('click', () => startGame('endless'));
-  startCrazyButton.addEventListener('click', () => startGame('crazy'));
-  openLeaderboardButton.addEventListener('click', () => openLeaderboard('endless'));
-  retryButton.addEventListener('click', () => startGame(currentMode));
-  saveScoreButton.addEventListener('click', () => {
+  startEndlessButton.addEventListener("click", () => startGame("endless"));
+  startCrazyButton.addEventListener("click", () => startGame("crazy"));
+  openLeaderboardButton.addEventListener("click", () =>
+    openLeaderboard("endless"),
+  );
+  retryButton.addEventListener("click", () => startGame(currentMode));
+  saveScoreButton.addEventListener("click", () => {
     if (lastFinishedTime !== null) {
       void submitOnlineScore(lastFinishedTime);
     }
   });
-  claimRewardButton.addEventListener('click', () => {
+  claimRewardButton.addEventListener("click", () => {
     void tryClaimReward();
   });
-  viewRewardButton.addEventListener('click', () => {
+  viewRewardButton.addEventListener("click", () => {
     void viewReward();
   });
-  homeButton.addEventListener('click', () => switchScreen('TITLE'));
-  leaderboardBackButton.addEventListener('click', () => switchScreen('TITLE'));
-  leaderboardEndlessTab.addEventListener('click', () => openLeaderboard('endless'));
-  leaderboardCrazyTab.addEventListener('click', () => openLeaderboard('crazy'));
+  homeButton.addEventListener("click", () => switchScreen("TITLE"));
+  leaderboardBackButton.addEventListener("click", () => switchScreen("TITLE"));
+  leaderboardEndlessTab.addEventListener("click", () =>
+    openLeaderboard("endless"),
+  );
+  leaderboardCrazyTab.addEventListener("click", () => openLeaderboard("crazy"));
 
-  window.addEventListener('keydown', (event) => {
+  window.addEventListener("keydown", (event) => {
     const target = event.target;
-    const isTypingTarget = target instanceof HTMLElement
-      && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable);
+    const isTypingTarget =
+      target instanceof HTMLElement &&
+      (target.tagName === "INPUT" ||
+        target.tagName === "TEXTAREA" ||
+        target.isContentEditable);
 
     if (isTypingTarget) {
       return;
     }
 
-    if (currentScreen === 'GAME') {
+    if (currentScreen === "GAME") {
       return;
     }
 
-    if (event.code === 'Space' && currentScreen === 'TITLE') {
+    if (event.code === "Space" && currentScreen === "TITLE") {
       event.preventDefault();
-      startGame('endless');
+      startGame("endless");
     }
 
-    if (event.code === 'KeyC' && currentScreen === 'TITLE') {
+    if (event.code === "KeyC" && currentScreen === "TITLE") {
       event.preventDefault();
-      startGame('crazy');
+      startGame("crazy");
     }
 
-    if (event.code === 'KeyL' && currentScreen === 'TITLE') {
+    if (event.code === "KeyL" && currentScreen === "TITLE") {
       event.preventDefault();
-      openLeaderboard('endless');
+      openLeaderboard("endless");
     }
 
-    if (event.code === 'Escape' && currentScreen === 'LEADERBOARD') {
+    if (event.code === "Escape" && currentScreen === "LEADERBOARD") {
       event.preventDefault();
-      switchScreen('TITLE');
+      switchScreen("TITLE");
     }
 
-    if (event.code === 'KeyT') {
+    if (event.code === "KeyT") {
       event.preventDefault();
       testModeEnabled = !testModeEnabled;
       renderTestModeState();
     }
 
-    if (event.code === 'KeyR' && currentScreen === 'GAMEOVER') {
+    if (event.code === "KeyR" && currentScreen === "GAMEOVER") {
       event.preventDefault();
       startGame(currentMode);
     }
 
-    if (event.code === 'KeyS' && currentScreen === 'GAMEOVER') {
+    if (event.code === "KeyS" && currentScreen === "GAMEOVER") {
       event.preventDefault();
       if (lastFinishedTime !== null) {
         void submitOnlineScore(lastFinishedTime);
       }
     }
 
-    if (event.code === 'KeyG' && currentScreen === 'GAMEOVER') {
+    if (event.code === "KeyG" && currentScreen === "GAMEOVER") {
       event.preventDefault();
       void tryClaimReward();
     }
 
-    if (event.code === 'KeyV' && currentScreen === 'GAMEOVER') {
+    if (event.code === "KeyV" && currentScreen === "GAMEOVER") {
       event.preventDefault();
       void viewReward();
     }
 
-    if (event.code === 'KeyH' && currentScreen === 'GAMEOVER') {
+    if (event.code === "KeyH" && currentScreen === "GAMEOVER") {
       event.preventDefault();
-      switchScreen('TITLE');
+      switchScreen("TITLE");
     }
   });
 }
 
-function startGame(mode = 'endless') {
+function startGame(mode = "endless") {
   engine?.stop();
   engine = null;
   currentMode = mode;
-  switchScreen('GAME');
+  switchScreen("GAME");
   applyModeTheme();
-  hudBestVal.textContent = (mode === 'crazy' ? bestScoreCrazy : bestScoreEndless).toFixed(1);
-  gameItem.textContent = getHudItemText(mode === 'crazy' ? 'CRAZY MODE ONLINE' : 'ENDLESS ITEMS ONLINE');
+  hudBestVal.textContent = (
+    mode === "crazy" ? bestScoreCrazy : bestScoreEndless
+  ).toFixed(1);
+  gameItem.textContent = getHudItemText(
+    mode === "crazy" ? "CRAZY MODE ONLINE" : "ENDLESS ITEMS ONLINE",
+  );
 
   engine = new GameEngine({
     canvas: gameCanvas,
     mode,
-    testMode: mode === 'crazy' && testModeEnabled,
-    initialTimeAlive: mode === 'crazy' && testModeEnabled ? 70 : 0,
+    testMode: mode === "crazy" && testModeEnabled,
+    initialTimeAlive: mode === "crazy" && testModeEnabled ? 70 : 0,
     onGameOver: async (time, won) => {
       const isNewBest = await saveGameResult(time, won, mode);
       await renderStats();
@@ -367,26 +415,33 @@ function startGame(mode = 'endless') {
       lastFinishedTime = time;
       lastScoreSaved = false;
       goTime.textContent = time.toFixed(1);
-      goNewBest.style.display = isNewBest ? 'block' : 'none';
-      goPlayerNameInput.value = normalizePlayerName(window.localStorage.getItem(PLAYER_NAME_KEY));
-      goOnlineStatus.textContent = 'ENTER NAME THEN SAVE SCORE';
+      goNewBest.style.display = isNewBest ? "block" : "none";
+      goPlayerNameInput.value = normalizePlayerName(
+        window.localStorage.getItem(PLAYER_NAME_KEY),
+      );
+      goOnlineStatus.textContent = "ENTER NAME THEN SAVE SCORE";
       resetRewardPanel();
       if (isRewardEligible(mode, time)) {
-        goRewardStatus.textContent = `REWARD AVAILABLE · ${mode === 'crazy' ? '90S' : '180S'}`;
+        goRewardStatus.textContent = `REWARD AVAILABLE · ${mode === "crazy" ? "90S" : "120S"}`;
       }
-      switchScreen('GAMEOVER');
+      switchScreen("GAMEOVER");
     },
-    onUpdateHUD: (time, round, laserIn, itemStatus = '', stageLabel = '') => {
+    onUpdateHUD: (time, round, laserIn, itemStatus = "", stageLabel = "") => {
       hudTimeVal.textContent = time.toFixed(1);
-      gameRound.textContent = stageLabel ? `${stageLabel} · ROUND ${round}` : `ROUND ${round}`;
+      gameRound.textContent = stageLabel
+        ? `${stageLabel} · ROUND ${round}`
+        : `ROUND ${round}`;
       gameLaser.textContent = `LASER IN ${laserIn.toFixed(1)}s`;
-      gameLaser.classList.toggle('danger', laserIn < 1);
-      gameItem.textContent = getHudItemText(itemStatus || (mode === 'crazy' ? 'CRAZY MODE ONLINE' : 'ENDLESS ITEMS ONLINE'));
+      gameLaser.classList.toggle("danger", laserIn < 1);
+      gameItem.textContent = getHudItemText(
+        itemStatus ||
+          (mode === "crazy" ? "CRAZY MODE ONLINE" : "ENDLESS ITEMS ONLINE"),
+      );
     },
   });
 
-  goOnlineStatus.textContent = '';
-  rootElement.style.setProperty('--canvas-width', `${gameCanvas.width}px`);
+  goOnlineStatus.textContent = "";
+  rootElement.style.setProperty("--canvas-width", `${gameCanvas.width}px`);
   engine.start();
 }
 
@@ -397,4 +452,4 @@ async function init() {
   await renderStats();
 }
 
-window.addEventListener('load', init);
+window.addEventListener("load", init);

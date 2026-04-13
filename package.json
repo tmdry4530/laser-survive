@@ -4,13 +4,9 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "start": "node server/src/app.js",
-    "server": "node server/src/app.js",
+    "start": "vercel dev",
     "lint": "eslint .",
     "test": "node --test"
-  },
-  "dependencies": {
-    "express": "^5.1.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",

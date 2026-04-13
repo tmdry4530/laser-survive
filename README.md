@@ -4,9 +4,17 @@
 
 레이저를 피해 14×14 그리드 위에서 최대한 오래 살아남는 웹 아케이드 게임입니다. 프레임워크 없이 HTML5 Canvas API와 Vanilla JavaScript만으로 게임 루프, 입력 처리, 상태 전환, 파티클 렌더링을 직접 구현했습니다.
 
+
+
 ## 배포 주소
 
 - **Vercel**: https://laser-survive.vercel.app/
+
+## 기획 의도
+
+뭐 만들지 모르겟어서 예전에 플레이했던 게임을 리메이크 해보기로 했다. 
+
+- **Reference**: https://death.fun/laser
 
 ## 핵심 기능
 

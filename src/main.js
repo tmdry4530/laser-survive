@@ -140,6 +140,34 @@ function resetRewardPanel() {
   goRewardDescription.textContent = "";
 }
 
+function getRewardImageUrl(asset) {
+  return asset?.signedUrl || asset?.signed_url || asset?.url || "";
+}
+
+function loadRewardImage(src) {
+  return new Promise((resolve, reject) => {
+    if (!src) {
+      reject(new Error("Reward image unavailable"));
+      return;
+    }
+
+    const cleanup = () => {
+      goRewardImage.onload = null;
+      goRewardImage.onerror = null;
+    };
+
+    goRewardImage.onload = () => {
+      cleanup();
+      resolve();
+    };
+    goRewardImage.onerror = () => {
+      cleanup();
+      reject(new Error("Reward image failed to load"));
+    };
+    goRewardImage.src = src;
+  });
+}
+
 async function submitOnlineScore(time) {
   if (lastScoreSaved) {
     goOnlineStatus.textContent = "SCORE ALREADY SAVED";
@@ -190,9 +218,9 @@ async function tryClaimReward() {
     lastRewardClaim = result;
 
     if (result.status === "claimed") {
-      goRewardStatus.textContent = "REWARD CLAIMED";
+      await viewReward("REWARD CLAIMED");
     } else if (result.status === "already_claimed") {
-      goRewardStatus.textContent = "ALREADY CLAIMED";
+      await viewReward("ALREADY CLAIMED");
     } else if (result.status === "not_eligible") {
       goRewardStatus.textContent = "REWARD NOT ELIGIBLE";
     } else {
@@ -209,7 +237,7 @@ async function tryClaimReward() {
   }
 }
 
-async function viewReward() {
+async function viewReward(statusText = "REWARD READY") {
   if (
     !lastRewardClaim &&
     !isRewardEligible(currentMode, lastFinishedTime ?? 0)
@@ -219,14 +247,16 @@ async function viewReward() {
   }
 
   goRewardStatus.textContent = "LOADING REWARD...";
+  goRewardPreview.style.display = "none";
   try {
     const asset = await fetchRewardAsset({ mode: currentMode });
     goRewardName.textContent = asset.name;
     goRewardDescription.textContent = asset.description;
-    goRewardImage.src = asset.signedUrl;
+    await loadRewardImage(getRewardImageUrl(asset));
     goRewardPreview.style.display = "flex";
-    goRewardStatus.textContent = "REWARD READY";
+    goRewardStatus.textContent = statusText;
   } catch (error) {
+    goRewardPreview.style.display = "none";
     goRewardStatus.textContent = toUserMessage(
       error.message,
       "보상 이미지를 불러오지 못했어요",

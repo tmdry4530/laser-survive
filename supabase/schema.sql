@@ -280,23 +280,23 @@ grant execute on function public.claim_reward(text, text, text, double precision
 update public.rewards
 set active = false
 where mode = 'endless'
-  and storage_path = 'endless/reward.png';
+  and storage_path = 'endless/reward.jpg';
 
 insert into public.rewards (mode, name, description, storage_path, required_time)
 values
-    ('endless', 'Endless Survivor Reward 01', 'Survive 30 seconds in Endless mode.', 'endless/reward-01.png', 30),
-    ('endless', 'Endless Survivor Reward 02', 'Survive 30 seconds in Endless mode.', 'endless/reward-02.png', 30),
-    ('endless', 'Endless Survivor Reward 03', 'Survive 30 seconds in Endless mode.', 'endless/reward-03.png', 30),
-    ('endless', 'Endless Survivor Reward 04', 'Survive 30 seconds in Endless mode.', 'endless/reward-04.png', 30),
-    ('endless', 'Endless Survivor Reward 05', 'Survive 30 seconds in Endless mode.', 'endless/reward-05.png', 30),
-    ('endless', 'Endless Survivor Reward 06', 'Survive 30 seconds in Endless mode.', 'endless/reward-06.png', 30),
-    ('endless', 'Endless Survivor Reward 07', 'Survive 30 seconds in Endless mode.', 'endless/reward-07.png', 30),
-    ('endless', 'Endless Survivor Reward 08', 'Survive 30 seconds in Endless mode.', 'endless/reward-08.png', 30),
-    ('endless', 'Endless Survivor Reward 09', 'Survive 30 seconds in Endless mode.', 'endless/reward-09.png', 30),
-    ('endless', 'Endless Survivor Reward 10', 'Survive 30 seconds in Endless mode.', 'endless/reward-10.png', 30),
-    ('endless', 'Endless Survivor Reward 11', 'Survive 30 seconds in Endless mode.', 'endless/reward-11.png', 30),
-    ('endless', 'Endless Survivor Reward 12', 'Survive 30 seconds in Endless mode.', 'endless/reward-12.png', 30),
-    ('crazy', 'Crazy Survivor Reward', 'Survive 90 seconds in Crazy mode.', 'crazy/reward.png', 90)
+    ('endless', 'Endless Survivor Reward 01', 'Survive 30 seconds in Endless mode.', 'endless/reward-01.jpg', 30),
+    ('endless', 'Endless Survivor Reward 02', 'Survive 30 seconds in Endless mode.', 'endless/reward-02.jpg', 30),
+    ('endless', 'Endless Survivor Reward 03', 'Survive 30 seconds in Endless mode.', 'endless/reward-03.jpg', 30),
+    ('endless', 'Endless Survivor Reward 04', 'Survive 30 seconds in Endless mode.', 'endless/reward-04.jpg', 30),
+    ('endless', 'Endless Survivor Reward 05', 'Survive 30 seconds in Endless mode.', 'endless/reward-05.jpg', 30),
+    ('endless', 'Endless Survivor Reward 06', 'Survive 30 seconds in Endless mode.', 'endless/reward-06.jpg', 30),
+    ('endless', 'Endless Survivor Reward 07', 'Survive 30 seconds in Endless mode.', 'endless/reward-07.jpg', 30),
+    ('endless', 'Endless Survivor Reward 08', 'Survive 30 seconds in Endless mode.', 'endless/reward-08.jpg', 30),
+    ('endless', 'Endless Survivor Reward 09', 'Survive 30 seconds in Endless mode.', 'endless/reward-09.jpg', 30),
+    ('endless', 'Endless Survivor Reward 10', 'Survive 30 seconds in Endless mode.', 'endless/reward-10.jpg', 30),
+    ('endless', 'Endless Survivor Reward 11', 'Survive 30 seconds in Endless mode.', 'endless/reward-11.jpg', 30),
+    ('endless', 'Endless Survivor Reward 12', 'Survive 30 seconds in Endless mode.', 'endless/reward-12.jpg', 30),
+    ('crazy', 'Crazy Survivor Reward', 'Survive 90 seconds in Crazy mode.', 'crazy/reward.jpg', 90)
 on conflict (storage_path) do update
 set
   name = excluded.name,

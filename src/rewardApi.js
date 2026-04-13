@@ -47,7 +47,7 @@ export function getDeviceId() {
 }
 
 export function getRewardThreshold(mode) {
-  return mode === 'crazy' ? 90 : 120;
+  return mode === 'crazy' ? 90 : 30;
 }
 
 export function isRewardEligible(mode, survivalTime) {

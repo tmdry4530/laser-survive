@@ -25,9 +25,9 @@ test('reward eligibility thresholds differ by mode', async () => {
   installBrowserGlobals();
   const { getRewardThreshold, isRewardEligible } = await import(`../src/rewardApi.js?test=${Date.now()}-${Math.random()}`);
 
-  assert.equal(getRewardThreshold('endless'), 120);
+  assert.equal(getRewardThreshold('endless'), 30);
   assert.equal(getRewardThreshold('crazy'), 90);
-  assert.equal(isRewardEligible('endless', 119.9), false);
+  assert.equal(isRewardEligible('endless', 29.9), false);
   assert.equal(isRewardEligible('crazy', 90), true);
 });
 

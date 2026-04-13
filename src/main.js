@@ -422,7 +422,7 @@ function startGame(mode = "endless") {
       goOnlineStatus.textContent = "ENTER NAME THEN SAVE SCORE";
       resetRewardPanel();
       if (isRewardEligible(mode, time)) {
-        goRewardStatus.textContent = `REWARD AVAILABLE · ${mode === "crazy" ? "90S" : "120S"}`;
+        goRewardStatus.textContent = `REWARD AVAILABLE · ${mode === "crazy" ? "90S" : "30S"}`;
       }
       switchScreen("GAMEOVER");
     },
